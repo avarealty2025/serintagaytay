@@ -1,0 +1,31 @@
+{
+  "name": "serin-pms",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "replay": "node scripts/import-bookings.ts",
+    "db:push": "supabase db push",
+    "db:diff": "supabase db diff",
+    "db:verify": "psql \"$DATABASE_URL\" -f scripts/verify-constraint.sql"
+  },
+  "dependencies": {
+    "next": "^15.5.22",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.2",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "supabase": "^2.111.0",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

@@ -1,0 +1,15 @@
+# Supabase CLI configuration.
+#
+# project_id is a local label only. The real link to a hosted project is made
+# by `supabase link --project-ref <ref>` and stored in supabase/.temp, which
+# is gitignored.
+
+project_id = "serin-pms"
+
+[db]
+# Must be 14+. The bookings exclusion constraint needs `EXCLUDE USING gist`
+# with btree_gist, and the migrations will fail on anything older.
+major_version = 15
+
+[db.migrations]
+schema_paths = []

@@ -1,0 +1,43 @@
+# dependencies
+node_modules/
+
+# env - never commit these. .env.example is the only one that ships.
+.env
+.env.local
+.env.*.local
+
+# build output
+.next/
+out/
+dist/
+build/
+
+# vercel
+.vercel/
+
+# supabase
+supabase/.branches/
+supabase/.temp/
+
+# test + tooling
+coverage/
+*.tsbuildinfo
+
+# editor / os
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# ---------------------------------------------------------------------------
+# SOURCE DATA - NEVER COMMIT. The GitHub repo is PUBLIC.
+# ---------------------------------------------------------------------------
+# month_*.csv hold guest full names: personal data under the Philippine Data
+# Privacy Act.
+#
+# calendar_link.csv holds the Airbnb iCal import URLs. The "?t=" token in each
+# one grants read access to that unit's booking calendar to anyone who has it,
+# with no expiry and no way to tell it has leaked.
+#
+# Keep these local. `npm run replay` and the dev server read them from disk.
+data/*.csv
