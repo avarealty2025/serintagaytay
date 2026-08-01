@@ -84,7 +84,7 @@ export const DEFAULT_SETTINGS: SystemSettings = {
     address: "Serin West & East, Tagaytay City, Cavite",
     phone: "",
     email: "",
-    website: "",
+    website: "serintagaytaystaycation.com",
     tin: "",
   },
   booking: {

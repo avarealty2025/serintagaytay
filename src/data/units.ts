@@ -36,8 +36,74 @@ type Seed = {
   name?: string;
   sqm?: number;
   active?: boolean;
-  /** Faces the caldera. From the sheet's own listing titles. */
   taalView?: boolean;
+  description?: string;
+};
+
+const TYPE_DESCRIPTIONS: Record<string, string> = {
+  studio: "Cozy studio unit perfect for solo travelers or couples. Open layout with sleeping and living area combined, kitchenette, and full bathroom.",
+  exec_studio: "Spacious executive studio with a premium layout, wider floor area, and upgraded finishes. Ideal for couples or small groups wanting extra comfort.",
+  "1br": "Separate bedroom with queen or king bed, full living area, dining space, and equipped kitchen. Great for families or groups wanting privacy.",
+  "2br": "Two-bedroom suite with separate master and guest bedrooms, full living and dining area, and equipped kitchen. Perfect for families or group getaways.",
+};
+
+const INCLUSIONS_BY_TYPE: Record<string, string[]> = {
+  studio: [
+    "Wi-Fi",
+    "Air Conditioning",
+    "Smart TV with Netflix",
+    "Refrigerator",
+    "Electric Kettle",
+    "Towels & Bed Linens",
+    "Hot & Cold Shower",
+    "Swimming Pool Access",
+  ],
+  exec_studio: [
+    "Wi-Fi",
+    "Air Conditioning",
+    "Smart TV with Netflix",
+    "Refrigerator",
+    "Microwave",
+    "Electric Kettle",
+    "Rice Cooker",
+    "Towels & Bed Linens",
+    "Hot & Cold Shower",
+    "Hair Dryer",
+    "Swimming Pool Access",
+  ],
+  "1br": [
+    "Wi-Fi",
+    "Air Conditioning",
+    "Smart TV with Netflix",
+    "Refrigerator",
+    "Microwave",
+    "Electric Kettle",
+    "Rice Cooker",
+    "Induction Cooker",
+    "Cooking Utensils",
+    "Towels & Bed Linens",
+    "Hot & Cold Shower",
+    "Hair Dryer",
+    "Iron & Board",
+    "Swimming Pool Access",
+  ],
+  "2br": [
+    "Wi-Fi",
+    "Air Conditioning (all rooms)",
+    "Smart TV with Netflix",
+    "Refrigerator",
+    "Microwave",
+    "Electric Kettle",
+    "Rice Cooker",
+    "Induction Cooker",
+    "Cooking Utensils & Dining Set",
+    "Towels & Bed Linens",
+    "Hot & Cold Shower",
+    "Hair Dryer",
+    "Iron & Board",
+    "Balcony",
+    "Swimming Pool Access",
+  ],
 };
 
 /**
@@ -78,6 +144,9 @@ export const UNITS: Unit[] = SEEDS.map((s) => {
     tower: s.tower,
     code: s.code,
     type: s.type,
+    description: s.description ?? TYPE_DESCRIPTIONS[s.type] ?? "",
+    inclusions: INCLUSIONS_BY_TYPE[s.type] ?? [],
+    sqm: s.sqm,
     capacity: 2,
     maxGuests: r.max,
     baseRate: r.base,

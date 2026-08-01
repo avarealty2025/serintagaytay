@@ -78,6 +78,7 @@ export default async function Home({
           </div>
           <nav>
             <Link href="/">Stay</Link>
+            <Link href="/compare">Compare</Link>
             <Link href="/book">Book</Link>
             <Link href="/admin">Admin</Link>
           </nav>
@@ -149,6 +150,7 @@ export default async function Home({
                       <span className="code">
                         {unit.tower}-{unit.code}{" "}
                         {unit.buildingId === "west" ? "West" : "East"}
+                        {unit.sqm ? ` · ${unit.sqm} sqm` : ""}
                       </span>
                       <ul className="facts">
                         <li>{TYPE_LABEL[unit.type]}</li>
@@ -156,17 +158,29 @@ export default async function Home({
                         <li>{taal ? "Taal view" : "Ridge side"}</li>
                       </ul>
 
-                      {free ? (
+                      <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
+                        {free ? (
+                          <Link
+                            href={`/book?checkIn=${checkIn}&checkOut=${checkOut}&guests=${guests}`}
+                            className="pill free"
+                            style={{ textDecoration: "none" }}
+                          >
+                            Book now
+                          </Link>
+                        ) : (
+                          <span className="pill gone">Booked</span>
+                        )}
                         <Link
-                          href={`/book?checkIn=${checkIn}&checkOut=${checkOut}&guests=${guests}`}
-                          className="pill free"
-                          style={{ textDecoration: "none" }}
+                          href={`/units/${unit.id}`}
+                          style={{
+                            fontSize: "0.72rem",
+                            color: "var(--accent)",
+                            fontWeight: 600,
+                          }}
                         >
-                          Book now
+                          View details
                         </Link>
-                      ) : (
-                        <span className="pill gone">Booked</span>
-                      )}
+                      </div>
 
                       <div className="rate">
                         {price && !price.requiresManualQuote ? (

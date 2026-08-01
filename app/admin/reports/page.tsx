@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import Link from "next/link";
 import { UNITS } from "../../../src/data/units.ts";
 import { loadSheet } from "../../../src/data/sheet.ts";
 import { nightsBetween, toDateStr } from "../../../src/lib/dates.ts";
@@ -13,6 +14,26 @@ const SOURCE_LABEL: Record<string, string> = {
   facebook: "Facebook",
 };
 
+const TYPE_LABEL: Record<string, string> = {
+  studio: "Studio",
+  exec_studio: "Exec Studio",
+  "1br": "1 BR",
+  "2br": "2 BR",
+};
+
+interface UnitReport {
+  unitId: string;
+  code: string;
+  name: string | undefined;
+  building: string;
+  type: string;
+  bookings: number;
+  nights: number;
+  revenue: number;
+  avgNightly: number;
+  occupancyPct: number;
+}
+
 export default async function ReportsPage() {
   const today = toDateStr(new Date());
   const { bookings } = loadSheet(join(process.cwd(), "data"));
@@ -25,6 +46,7 @@ export default async function ReportsPage() {
   const revenueByUnit = new Map<string, number>();
   const nightsByUnit = new Map<string, number>();
   const bookingsBySource = new Map<string, number>();
+  const bookingsByUnit = new Map<string, number>();
 
   for (const b of bookings) {
     let nights = 0;
@@ -39,6 +61,7 @@ export default async function ReportsPage() {
     const src = b.source ?? "unknown";
     bookingsBySource.set(src, (bookingsBySource.get(src) ?? 0) + 1);
     nightsByUnit.set(b.unitId, (nightsByUnit.get(b.unitId) ?? 0) + nights);
+    bookingsByUnit.set(b.unitId, (bookingsByUnit.get(b.unitId) ?? 0) + 1);
 
     const unit = unitMap.get(b.unitId);
     if (unit && nights < 28) {
@@ -69,9 +92,26 @@ export default async function ReportsPage() {
   const sortedSources = [...revenueBySource.entries()].sort(
     (a, b) => b[1] - a[1],
   );
-  const sortedUnits = [...revenueByUnit.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 10);
+
+  const unitReports: UnitReport[] = active
+    .map((u) => {
+      const rev = revenueByUnit.get(u.id) ?? 0;
+      const n = nightsByUnit.get(u.id) ?? 0;
+      const b = bookingsByUnit.get(u.id) ?? 0;
+      return {
+        unitId: u.id,
+        code: `${u.tower}-${u.code}`,
+        name: u.name,
+        building: u.buildingId === "west" ? "West" : "East",
+        type: TYPE_LABEL[u.type] ?? u.type,
+        bookings: b,
+        nights: n,
+        revenue: rev,
+        avgNightly: n > 0 ? rev / n : 0,
+        occupancyPct: Math.round((n / 92) * 100),
+      };
+    })
+    .sort((a, b) => b.revenue - a.revenue);
 
   return (
     <>
@@ -108,7 +148,136 @@ export default async function ReportsPage() {
         </div>
       </div>
 
+      {/* Per-unit report table */}
+      <div className="panel">
+        <h2>
+          Per-Unit Performance{" "}
+          <span className="hint">all {active.length} units</span>
+        </h2>
+        <div className="tbl-scroll">
+          <table className="tbl">
+            <thead>
+              <tr>
+                <th>Unit</th>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Building</th>
+                <th className="tar">Bookings</th>
+                <th className="tar">Nights</th>
+                <th className="tar">Occupancy</th>
+                <th className="tar">Revenue</th>
+                <th className="tar">Avg/Night</th>
+              </tr>
+            </thead>
+            <tbody>
+              {unitReports.map((ur) => (
+                <tr key={ur.unitId}>
+                  <td>
+                    <span style={{ fontFamily: "var(--mono)", fontWeight: 700 }}>
+                      {ur.code}
+                    </span>
+                  </td>
+                  <td>{ur.name ?? "—"}</td>
+                  <td>{ur.type}</td>
+                  <td>{ur.building}</td>
+                  <td className="tar mono">{ur.bookings}</td>
+                  <td className="tar mono">{ur.nights}</td>
+                  <td className="tar">
+                    <span
+                      className={`status-pill ${ur.occupancyPct >= 60 ? "ok" : ur.occupancyPct >= 30 ? "warn" : ""}`}
+                      style={
+                        ur.occupancyPct < 30
+                          ? {
+                              background:
+                                "color-mix(in srgb, var(--crit) 18%, transparent)",
+                              color: "var(--crit)",
+                            }
+                          : undefined
+                      }
+                    >
+                      {ur.occupancyPct}%
+                    </span>
+                  </td>
+                  <td className="tar mono" style={{ fontWeight: 700 }}>
+                    {formatPHP(ur.revenue)}
+                  </td>
+                  <td className="tar mono">
+                    {ur.avgNightly > 0 ? formatPHP(ur.avgNightly) : "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr style={{ fontWeight: 700, borderTop: "2px solid var(--line)" }}>
+                <td colSpan={4}>Total</td>
+                <td className="tar mono">
+                  {unitReports.reduce((s, u) => s + u.bookings, 0)}
+                </td>
+                <td className="tar mono">{totalNights}</td>
+                <td className="tar">{occupancyRate}%</td>
+                <td className="tar mono">{formatPHP(totalRevenue)}</td>
+                <td className="tar mono">{formatPHP(avgNightly)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+
+      {/* Top performers */}
       <div className="cols">
+        <div className="panel">
+          <h2>
+            Top Revenue Units{" "}
+            <span className="hint">top 5</span>
+          </h2>
+          {unitReports.slice(0, 5).map((ur) => {
+            const pct =
+              totalRevenue > 0
+                ? Math.round((ur.revenue / totalRevenue) * 100)
+                : 0;
+            return (
+              <div className="row" key={ur.unitId}>
+                <span
+                  className="stripe"
+                  style={{ background: "var(--accent)" }}
+                />
+                <span style={{ flex: 1 }}>
+                  <p className="who">
+                    {ur.code}
+                    {ur.name ? (
+                      <span
+                        style={{
+                          fontWeight: 400,
+                          color: "var(--text-3)",
+                          marginLeft: "0.5rem",
+                        }}
+                      >
+                        {ur.name}
+                      </span>
+                    ) : null}
+                  </p>
+                  <p className="sub">
+                    {ur.bookings} bookings &middot; {ur.nights} nights &middot;{" "}
+                    {ur.occupancyPct}% occupancy
+                  </p>
+                  <div className="bar-bg">
+                    <div
+                      className="bar-fill"
+                      style={{
+                        width: `${pct}%`,
+                        background: "var(--accent)",
+                      }}
+                    />
+                  </div>
+                </span>
+                <span className="mono" style={{ fontWeight: 700 }}>
+                  {formatPHP(ur.revenue)}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+
         <div className="panel">
           <h2>
             Revenue by Source{" "}
@@ -146,50 +315,6 @@ export default async function ReportsPage() {
                         width: `${pct}%`,
                         background: `var(--ch-${src === "unknown" ? "block" : src === "facebook" ? "fb" : src})`,
                       }}
-                    />
-                  </div>
-                </span>
-                <span className="mono" style={{ fontWeight: 700 }}>
-                  {formatPHP(rev)}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-
-        <div className="panel">
-          <h2>
-            Revenue by Unit{" "}
-            <span className="hint">top 10</span>
-          </h2>
-          {sortedUnits.map(([uid, rev]) => {
-            const u = unitMap.get(uid);
-            const nights = nightsByUnit.get(uid) ?? 0;
-            const pct =
-              totalRevenue > 0 ? Math.round((rev / totalRevenue) * 100) : 0;
-            return (
-              <div className="row" key={uid}>
-                <span className="stripe" style={{ background: "var(--accent)" }} />
-                <span style={{ flex: 1 }}>
-                  <p className="who">
-                    {u ? `${u.tower}-${u.code}` : uid}
-                    {u?.name ? (
-                      <span
-                        style={{
-                          fontWeight: 400,
-                          color: "var(--text-3)",
-                          marginLeft: "0.5rem",
-                        }}
-                      >
-                        {u.name}
-                      </span>
-                    ) : null}
-                  </p>
-                  <p className="sub">{nights} nights booked</p>
-                  <div className="bar-bg">
-                    <div
-                      className="bar-fill"
-                      style={{ width: `${pct}%`, background: "var(--accent)" }}
                     />
                   </div>
                 </span>
@@ -242,10 +367,11 @@ export default async function ReportsPage() {
       </div>
 
       <p className="notice" style={{ marginTop: "1.5rem" }}>
-        <strong>Estimated.</strong> Revenue is calculated from unit rates. Actual
-        collected amounts, commission deductions, and expenses require Supabase.
-        Cleaning fees and extra guest fees are not yet set, so totals are nightly
-        rates only.
+        <strong>Estimated.</strong> Revenue is calculated from unit rates.
+        Actual collected amounts, commission deductions, and expenses require
+        Supabase. Cleaning fees and extra guest fees are not yet set, so totals
+        are nightly rates only. Per-unit expense data will be available once
+        Supabase is connected.
       </p>
     </>
   );

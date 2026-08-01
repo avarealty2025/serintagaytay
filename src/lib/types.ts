@@ -48,6 +48,10 @@ export interface Unit {
   code: string;
   name?: string;
   type: "studio" | "exec_studio" | "1br" | "2br";
+  description?: string;
+  inclusions?: string[];
+  amenities?: string[];
+  sqm?: number;
 
   /** Guests included in the base rate. Above this, the extra guest fee applies. */
   capacity: number;

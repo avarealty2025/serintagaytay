@@ -11,6 +11,7 @@ import {
 } from "../../src/lib/pricing.ts";
 import { nightsBetween, addDays, toDateStr } from "../../src/lib/dates.ts";
 import type { PriceBreakdown } from "../../src/lib/types.ts";
+import { getSettings } from "../../src/lib/settings.ts";
 
 const TYPE_LABEL: Record<string, string> = {
   studio: "Studio",
@@ -337,91 +338,207 @@ export default function BookPage() {
         )}
 
         {step === "confirm" && selectedUnit && selectedPrice && (
-          <div style={{ maxWidth: "600px", margin: "0 auto", padding: "2rem 0 4rem" }}>
-            <div style={{ textAlign: "center", marginBottom: "2rem" }}>
-              <div style={{ fontSize: "4rem", color: "var(--good)", lineHeight: 1 }}>&#10003;</div>
-              <h2 style={{ margin: "0.75rem 0 0.5rem", fontFamily: "var(--display)", fontWeight: 400, fontSize: "1.8rem" }}>
-                Booking request received
-              </h2>
-              <p style={{ color: "var(--text-2)" }}>
-                Thank you, {name}! Your reservation is being processed.
-              </p>
-            </div>
-
-            <div className="panel price-summary">
-              <h2>Reservation Details</h2>
-              <div className="form-body">
-                <div className="summary-row">
-                  <span>Unit</span>
-                  <span className="mono">
-                    {selectedUnit.tower}-{selectedUnit.code}{" "}
-                    {selectedUnit.name ?? (selectedUnit.buildingId === "west" ? "West" : "East")}
-                  </span>
-                </div>
-                <div className="summary-row">
-                  <span>Dates</span>
-                  <span className="mono">
-                    {checkIn} to {checkOut} ({nights} nights)
-                  </span>
-                </div>
-                <div className="summary-row">
-                  <span>Guests</span>
-                  <span className="mono">{guests}</span>
-                </div>
-                <div className="sep" />
-                <div className="summary-row total">
-                  <span>Total</span>
-                  <span className="mono">{formatPHP(selectedPrice.total)}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="panel" style={{ marginTop: "1rem" }}>
-              <h2>
-                Payment Instructions{" "}
-                <span className="hint">to confirm your booking</span>
-              </h2>
-              <div className="form-body">
-                <p style={{ fontSize: "0.85rem", color: "var(--text-2)" }}>
-                  To confirm your reservation, please send the reservation fee
-                  within 24 hours. Your booking will be held until payment is
-                  received.
-                </p>
-
-                <div className="pay-method">
-                  <h4>GCash</h4>
-                  <p className="mono">
-                    Name: <strong>(To be configured)</strong>
-                    <br />
-                    Number: <strong>(To be configured)</strong>
-                  </p>
-                </div>
-
-                <div className="pay-method">
-                  <h4>Bank Transfer</h4>
-                  <p className="mono">
-                    Bank: <strong>(To be configured)</strong>
-                    <br />
-                    Account: <strong>(To be configured)</strong>
-                  </p>
-                </div>
-
-                <p style={{ fontSize: "0.82rem", color: "var(--text-2)" }}>
-                  After sending, please reply to the confirmation message with a
-                  screenshot of your payment receipt. The owner will verify and
-                  confirm your booking.
-                </p>
-              </div>
-            </div>
-
-            <div style={{ textAlign: "center", paddingTop: "1.5rem" }}>
-              <Link href="/" className="btn">
-                Back to home
-              </Link>
-            </div>
-          </div>
+          <ConfirmStep
+            unit={selectedUnit}
+            price={selectedPrice}
+            name={name}
+            email={email}
+            phone={phone}
+            checkIn={checkIn}
+            checkOut={checkOut}
+            nights={nights}
+            guests={guests}
+          />
         )}
       </div>
     </>
+  );
+}
+
+function ConfirmStep({
+  unit,
+  price,
+  name: guestName,
+  email,
+  phone,
+  checkIn,
+  checkOut,
+  nights,
+  guests,
+}: {
+  unit: (typeof UNITS)[number];
+  price: PriceBreakdown;
+  name: string;
+  email: string;
+  phone: string;
+  checkIn: string;
+  checkOut: string;
+  nights: number;
+  guests: number;
+}) {
+  const settings = getSettings();
+  const ref = `SR-${Date.now().toString(36).toUpperCase()}`;
+  const receiptParams = new URLSearchParams({
+    unit: unit.id,
+    name: guestName,
+    email,
+    phone,
+    checkIn,
+    checkOut,
+    guests: String(guests),
+    total: String(price.total),
+    nights: String(nights),
+    ref,
+  });
+
+  return (
+    <div style={{ maxWidth: "600px", margin: "0 auto", padding: "2rem 0 4rem" }}>
+      <div style={{ textAlign: "center", marginBottom: "2rem" }}>
+        <div style={{ fontSize: "4rem", color: "var(--good)", lineHeight: 1 }}>
+          &#10003;
+        </div>
+        <h2
+          style={{
+            margin: "0.75rem 0 0.5rem",
+            fontFamily: "var(--display)",
+            fontWeight: 400,
+            fontSize: "1.8rem",
+          }}
+        >
+          Booking request received
+        </h2>
+        <p style={{ color: "var(--text-2)" }}>
+          Thank you, {guestName}! Your reservation is being processed.
+        </p>
+        <p
+          style={{
+            fontFamily: "var(--mono)",
+            fontSize: "0.82rem",
+            color: "var(--text-3)",
+          }}
+        >
+          Reference: {ref}
+        </p>
+      </div>
+
+      <div className="panel price-summary">
+        <h2>Reservation Details</h2>
+        <div className="form-body">
+          <div className="summary-row">
+            <span>Unit</span>
+            <span className="mono">
+              {unit.tower}-{unit.code}{" "}
+              {unit.name ?? (unit.buildingId === "west" ? "West" : "East")}
+            </span>
+          </div>
+          <div className="summary-row">
+            <span>Dates</span>
+            <span className="mono">
+              {checkIn} to {checkOut} ({nights} nights)
+            </span>
+          </div>
+          <div className="summary-row">
+            <span>Guests</span>
+            <span className="mono">{guests}</span>
+          </div>
+          <div className="summary-row">
+            <span>Check-in</span>
+            <span>{settings.booking.checkInTime}</span>
+          </div>
+          <div className="summary-row">
+            <span>Check-out</span>
+            <span>{settings.booking.checkOutTime}</span>
+          </div>
+          <div className="sep" />
+          <div className="summary-row total">
+            <span>Total</span>
+            <span className="mono">{formatPHP(price.total)}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="panel" style={{ marginTop: "1rem" }}>
+        <h2>
+          Payment Instructions{" "}
+          <span className="hint">to confirm your booking</span>
+        </h2>
+        <div className="form-body">
+          <p style={{ fontSize: "0.85rem", color: "var(--text-2)" }}>
+            To confirm your reservation, please send your payment within{" "}
+            {settings.booking.holdDurationHours} hours. Your booking will be
+            held until payment is received.
+          </p>
+
+          {settings.payment.gcashName ? (
+            <div className="pay-method">
+              <h4>GCash</h4>
+              <p className="mono">
+                Name: <strong>{settings.payment.gcashName}</strong>
+                <br />
+                Number: <strong>{settings.payment.gcashNumber}</strong>
+              </p>
+            </div>
+          ) : (
+            <div className="pay-method">
+              <h4>GCash</h4>
+              <p
+                style={{ fontSize: "0.82rem", color: "var(--text-3)", margin: 0 }}
+              >
+                To be configured by admin
+              </p>
+            </div>
+          )}
+
+          {settings.payment.bankName ? (
+            <div className="pay-method">
+              <h4>Bank Transfer</h4>
+              <p className="mono">
+                Bank: <strong>{settings.payment.bankName}</strong>
+                <br />
+                Account Name: <strong>{settings.payment.bankAccountName}</strong>
+                <br />
+                Account No.: <strong>{settings.payment.bankAccountNumber}</strong>
+              </p>
+            </div>
+          ) : (
+            <div className="pay-method">
+              <h4>Bank Transfer</h4>
+              <p
+                style={{ fontSize: "0.82rem", color: "var(--text-3)", margin: 0 }}
+              >
+                To be configured by admin
+              </p>
+            </div>
+          )}
+
+          {settings.payment.instructions && (
+            <p style={{ fontSize: "0.82rem", color: "var(--text-2)" }}>
+              {settings.payment.instructions}
+            </p>
+          )}
+        </div>
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          gap: "0.75rem",
+          justifyContent: "center",
+          paddingTop: "1.5rem",
+          flexWrap: "wrap",
+        }}
+      >
+        <Link
+          href={`/receipt?${receiptParams.toString()}`}
+          className="btn"
+          target="_blank"
+        >
+          View Receipt
+        </Link>
+        <Link href="/" className="btn-outline">
+          Back to home
+        </Link>
+      </div>
+    </div>
   );
 }
