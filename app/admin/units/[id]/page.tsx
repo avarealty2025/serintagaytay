@@ -41,7 +41,8 @@ export default function UnitEditPage() {
   const settings = getSettings();
 
   const [name, setName] = useState(unit?.name ?? "");
-  const [description, setDescription] = useState("");
+  const [description, setDescription] = useState(unit?.description ?? "");
+  const [inclusions, setInclusions] = useState((unit?.inclusions ?? []).join("\n"));
   const [weekdayRate, setWeekdayRate] = useState(unit?.baseRate ?? 0);
   const [weekendRate, setWeekendRate] = useState(unit?.weekendRate ?? 0);
   const [holidayRate, setHolidayRate] = useState(0);
@@ -144,6 +145,18 @@ export default function UnitEditPage() {
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Describe this unit for the public listing..."
                 />
+              </div>
+              <div className="field">
+                <label>Inclusions (one per line)</label>
+                <textarea
+                  rows={4}
+                  value={inclusions}
+                  onChange={(e) => setInclusions(e.target.value)}
+                  placeholder="Wi-Fi&#10;Air Conditioning&#10;Smart TV with Netflix"
+                />
+                <p style={{ margin: "0.25rem 0 0", fontSize: "0.72rem", color: "var(--text-3)" }}>
+                  {inclusions.split("\n").filter(Boolean).length} items &middot; shown on the public unit page
+                </p>
               </div>
               <div className="field-row">
                 <div className="field">

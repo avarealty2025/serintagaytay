@@ -39,6 +39,7 @@ export default async function UnitDetailPage({
           </div>
           <nav>
             <Link href="/">Stay</Link>
+            <Link href="/compare">Compare</Link>
             <Link href="/book">Book</Link>
             <Link href="/admin">Admin</Link>
           </nav>

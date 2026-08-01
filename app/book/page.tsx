@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { Mark } from "../mark.tsx";
 import { UNITS, TAAL_VIEW_CODES } from "../../src/data/units.ts";
@@ -81,7 +81,9 @@ export default function BookPage() {
             </p>
           </div>
           <nav>
-            <Link href="/">Home</Link>
+            <Link href="/">Stay</Link>
+            <Link href="/compare">Compare</Link>
+            <Link href="/admin">Admin</Link>
           </nav>
         </div>
       </header>
@@ -377,7 +379,37 @@ function ConfirmStep({
   guests: number;
 }) {
   const settings = getSettings();
-  const ref = `SR-${Date.now().toString(36).toUpperCase()}`;
+  const ref = useRef(`SR-${Date.now().toString(36).toUpperCase()}`).current;
+  const [emailStatus, setEmailStatus] = useState<"sending" | "sent" | "failed" | "not_configured">("sending");
+  const sentRef = useRef(false);
+
+  useEffect(() => {
+    if (sentRef.current) return;
+    sentRef.current = true;
+    fetch("/api/confirm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        guestName,
+        email,
+        unitId: unit.id,
+        checkIn,
+        checkOut,
+        nights,
+        guests,
+        total: price.total,
+        ref,
+      }),
+    })
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.ok) setEmailStatus("sent");
+        else if (d.html_preview) setEmailStatus("not_configured");
+        else setEmailStatus("failed");
+      })
+      .catch(() => setEmailStatus("failed"));
+  }, []);
+
   const receiptParams = new URLSearchParams({
     unit: unit.id,
     name: guestName,
@@ -419,6 +451,21 @@ function ConfirmStep({
         >
           Reference: {ref}
         </p>
+        {emailStatus === "sent" && (
+          <p style={{ fontSize: "0.78rem", color: "var(--good)" }}>
+            Confirmation email sent to {email}
+          </p>
+        )}
+        {emailStatus === "sending" && (
+          <p style={{ fontSize: "0.78rem", color: "var(--text-3)" }}>
+            Sending confirmation email...
+          </p>
+        )}
+        {emailStatus === "not_configured" && (
+          <p style={{ fontSize: "0.78rem", color: "var(--warn)" }}>
+            Email confirmation will be available once configured by admin
+          </p>
+        )}
       </div>
 
       <div className="panel price-summary">
