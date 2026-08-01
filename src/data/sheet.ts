@@ -75,7 +75,12 @@ export function loadSheet(dataDir: string): SheetLoad {
   let rowsSeen = 0;
 
   for (const m of MONTHS) {
-    const text = readFileSync(join(dataDir, `${m}.csv`), "utf8");
+    let text: string;
+    try {
+      text = readFileSync(join(dataDir, `${m}.csv`), "utf8");
+    } catch {
+      continue;
+    }
     const lines = text.split(/\r?\n/);
     let lastCheckIn: string | null = null;
 
