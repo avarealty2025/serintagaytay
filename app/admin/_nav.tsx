@@ -6,17 +6,31 @@ const GROUPS: { title: string; links: { href: string; label: string }[] }[] = [
   {
     title: "Operations",
     links: [
-      { href: "/admin", label: "Today" },
+      { href: "/admin", label: "Dashboard" },
       { href: "/admin/calendar", label: "Calendar" },
       { href: "/admin/bookings", label: "Bookings" },
       { href: "/admin/tasks", label: "Tasks" },
     ],
   },
   {
+    title: "Units",
+    links: [
+      { href: "/admin/units", label: "All Units" },
+    ],
+  },
+  {
     title: "Business",
     links: [
       { href: "/admin/reports", label: "Reports" },
+      { href: "/admin/expenses", label: "Expenses" },
+    ],
+  },
+  {
+    title: "Admin",
+    links: [
       { href: "/admin/settings", label: "Settings" },
+      { href: "/admin/staff", label: "Staff" },
+      { href: "/admin/audit", label: "Audit Logs" },
     ],
   },
   {

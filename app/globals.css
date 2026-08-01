@@ -182,7 +182,7 @@ a {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 0.75rem;
-  align-items: end;
+  align-items: flex-end;
   margin: 1.5rem 0 2rem;
 }
 .field {
@@ -810,7 +810,7 @@ code {
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 0.75rem;
   padding: 0.75rem 0.9rem;
-  align-items: end;
+  align-items: flex-end;
 }
 
 /* -- forms -------------------------------------------------------------- */
@@ -1165,4 +1165,402 @@ a.btn {
 .pay-method p {
   margin: 0;
   font-size: 0.82rem;
+}
+
+/* -- dashboard ---------------------------------------------------------- */
+
+.dash-date {
+  font-size: 0.82rem;
+  color: var(--text-2);
+  margin: 0;
+}
+.dash-time {
+  margin-left: 0.75rem;
+  font-size: 0.72rem;
+  color: var(--text-3);
+}
+
+.back-link {
+  font-size: 0.75rem;
+  color: var(--text-3);
+  text-decoration: none;
+  display: inline-block;
+  margin-bottom: 0.25rem;
+}
+.back-link:hover {
+  color: var(--accent);
+}
+
+/* -- data table --------------------------------------------------------- */
+
+.dt-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  padding: 0.65rem 0.9rem;
+  border-bottom: 1px solid var(--line-soft);
+  align-items: flex-end;
+}
+.dt-toolbar .field {
+  min-width: 0;
+}
+.dt-toolbar .field input,
+.dt-toolbar .field select {
+  min-height: 34px;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.8rem;
+}
+.dt-actions {
+  display: flex;
+  gap: 0.35rem;
+  margin-left: auto;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+.dt-footer {
+  padding: 0.45rem 0.9rem;
+  border-top: 1px solid var(--line-soft);
+  font-size: 0.72rem;
+  color: var(--text-3);
+}
+
+.tbl th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+.tbl th.sortable:hover {
+  color: var(--accent);
+}
+.sort-arrow {
+  font-size: 0.55rem;
+  margin-left: 0.2rem;
+}
+
+/* -- unit cards --------------------------------------------------------- */
+
+.unit-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+.unit-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  text-decoration: none;
+  color: var(--text);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.unit-card:hover {
+  border-color: var(--accent);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+.uc-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.uc-code {
+  font-family: var(--mono);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+.uc-building {
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  font-weight: 700;
+}
+.uc-name {
+  font-family: var(--display);
+  font-size: 1.15rem;
+  margin: 0;
+  line-height: 1.2;
+}
+.uc-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem 0.6rem;
+  font-size: 0.72rem;
+  color: var(--text-2);
+}
+.uc-view {
+  color: var(--accent);
+  font-weight: 600;
+}
+.uc-rates {
+  display: flex;
+  gap: 1rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--line-soft);
+}
+.uc-rates > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+.uc-rate-label {
+  font-size: 0.6rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  font-weight: 700;
+}
+.uc-rate-val {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: 0.92rem;
+}
+.uc-fees {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem 0.75rem;
+  font-size: 0.68rem;
+  color: var(--text-2);
+}
+.uc-warn {
+  color: var(--warn);
+  font-weight: 600;
+}
+.uc-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: auto;
+  padding-top: 0.5rem;
+}
+.uc-edit {
+  font-size: 0.72rem;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* -- amenities ---------------------------------------------------------- */
+
+.amenity-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 0.35rem;
+}
+.amenity-check {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.82rem;
+  cursor: pointer;
+  padding: 0.2rem 0;
+}
+.amenity-check input[type="checkbox"] {
+  accent-color: var(--accent);
+  width: 16px;
+  height: 16px;
+}
+
+/* -- settings layout ---------------------------------------------------- */
+
+.settings-layout {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+@media (max-width: 860px) {
+  .settings-layout {
+    grid-template-columns: 1fr;
+  }
+}
+.settings-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  padding: 0.5rem;
+}
+@media (max-width: 860px) {
+  .settings-tabs {
+    flex-direction: row;
+    overflow-x: auto;
+    gap: 4px;
+  }
+}
+.settings-tab {
+  padding: 0.45rem 0.65rem;
+  font-size: 0.78rem;
+  font-family: var(--sans);
+  border: none;
+  background: transparent;
+  color: var(--text-2);
+  cursor: pointer;
+  text-align: left;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+.settings-tab:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.settings-tab.active {
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+.settings-content {
+  min-width: 0;
+}
+
+/* -- photo album -------------------------------------------------------- */
+
+.drop-zone {
+  border: 2px dashed var(--line);
+  padding: 2rem;
+  text-align: center;
+  margin-bottom: 1.5rem;
+  transition: border-color 0.2s, background 0.2s;
+}
+.drop-zone p {
+  margin: 0;
+  color: var(--text-2);
+  font-size: 0.85rem;
+}
+.drop-zone .drop-hint {
+  font-size: 0.72rem;
+  color: var(--text-3);
+  margin-top: 0.3rem;
+}
+.drop-zone.active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+
+.photo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+.photo-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  cursor: grab;
+  transition: border-color 0.15s;
+}
+.photo-card:active {
+  cursor: grabbing;
+}
+.photo-card.drag-over {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent);
+}
+.photo-img {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  background: var(--surface-2);
+}
+.photo-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.photo-cover-badge {
+  position: absolute;
+  top: 0.4rem;
+  left: 0.4rem;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 0.58rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 700;
+  padding: 0.15rem 0.4rem;
+  border-radius: 2px;
+}
+.photo-actions {
+  padding: 0.5rem 0.65rem;
+}
+.photo-caption {
+  font-size: 0.75rem;
+  color: var(--text-2);
+  display: block;
+  margin-bottom: 0.35rem;
+}
+.photo-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+.photo-caption-edit {
+  display: flex;
+  gap: 0.35rem;
+}
+.photo-caption-edit input {
+  flex: 1;
+  font-family: var(--sans);
+  font-size: 0.78rem;
+  padding: 0.25rem 0.4rem;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 3px;
+}
+
+/* -- small buttons ------------------------------------------------------ */
+
+.btn-xs {
+  font-size: 0.6rem;
+  padding: 0.2rem 0.45rem;
+  font-family: var(--sans);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text-2);
+  cursor: pointer;
+  border-radius: 2px;
+  white-space: nowrap;
+}
+.btn-xs:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.btn-danger {
+  color: var(--crit) !important;
+  border-color: var(--crit) !important;
+}
+.btn-danger:hover {
+  background: color-mix(in srgb, var(--crit) 10%, transparent) !important;
+}
+
+/* -- print -------------------------------------------------------------- */
+
+@media print {
+  .side,
+  .page-head .btn,
+  .page-head .btn-outline,
+  .dt-toolbar,
+  .dt-footer,
+  .dt-actions,
+  .btn-xs,
+  .navgrp,
+  .filter-bar,
+  .drop-zone,
+  .notice,
+  .warnbox,
+  .foot {
+    display: none !important;
+  }
+  .shell {
+    grid-template-columns: 1fr;
+  }
+  .tbl {
+    font-size: 9pt;
+  }
 }
