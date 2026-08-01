@@ -1,0 +1,427 @@
+"use client";
+import { useState } from "react";
+import Link from "next/link";
+import { Mark } from "../mark.tsx";
+import { UNITS, TAAL_VIEW_CODES } from "../../src/data/units.ts";
+import {
+  quote,
+  formatPHP,
+  PricingError,
+  LONG_STAY_NIGHTS,
+} from "../../src/lib/pricing.ts";
+import { nightsBetween, addDays, toDateStr } from "../../src/lib/dates.ts";
+import type { PriceBreakdown } from "../../src/lib/types.ts";
+
+const TYPE_LABEL: Record<string, string> = {
+  studio: "Studio",
+  exec_studio: "Executive Studio",
+  "1br": "1 Bedroom",
+  "2br": "2 Bedrooms",
+};
+
+type Step = "select" | "details" | "confirm";
+
+export default function BookPage() {
+  const today = toDateStr(new Date());
+  const active = UNITS.filter((u) => u.active);
+
+  const [step, setStep] = useState<Step>("select");
+  const [checkIn, setCheckIn] = useState(addDays(today, 1));
+  const [checkOut, setCheckOut] = useState(addDays(today, 3));
+  const [guests, setGuests] = useState(2);
+  const [unitId, setUnitId] = useState("");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [requests, setRequests] = useState("");
+
+  const selectedUnit = active.find((u) => u.id === unitId);
+
+  let nights = 0;
+  try {
+    nights = nightsBetween(checkIn, checkOut);
+  } catch {
+    /* skip */
+  }
+
+  const results = active.map((unit) => {
+    let price: PriceBreakdown | null = null;
+    let error: string | null = null;
+    try {
+      price = quote(unit, checkIn, checkOut, guests);
+    } catch (e) {
+      error = e instanceof PricingError ? e.message : "Not available";
+    }
+    return { unit, price, error };
+  });
+
+  const bookable = results.filter(
+    (r) => r.price && !r.price.requiresManualQuote && !r.error,
+  );
+
+  let selectedPrice: PriceBreakdown | null = null;
+  if (selectedUnit) {
+    try {
+      selectedPrice = quote(selectedUnit, checkIn, checkOut, guests);
+    } catch {
+      /* skip */
+    }
+  }
+
+  return (
+    <>
+      <header className="pub-head">
+        <div className="wrap">
+          <div className="lockup">
+            <Mark />
+            <p className="brand">
+              Serin
+              <small>Tagaytay</small>
+            </p>
+          </div>
+          <nav>
+            <Link href="/">Home</Link>
+          </nav>
+        </div>
+      </header>
+
+      <div className="wrap">
+        <div className="book-steps">
+          <div className={`step-dot ${step === "select" ? "active" : "done"}`}>
+            <span className="step-n">1</span>
+            <span className="step-l">Select unit</span>
+          </div>
+          <div className="step-line" />
+          <div className={`step-dot ${step === "details" ? "active" : step === "confirm" ? "done" : ""}`}>
+            <span className="step-n">2</span>
+            <span className="step-l">Your details</span>
+          </div>
+          <div className="step-line" />
+          <div className={`step-dot ${step === "confirm" ? "active" : ""}`}>
+            <span className="step-n">3</span>
+            <span className="step-l">Confirmation</span>
+          </div>
+        </div>
+
+        {step === "select" && (
+          <>
+            <h2 className="book-title">Choose your dates and unit</h2>
+
+            <form
+              className="searchbar"
+              onSubmit={(e) => e.preventDefault()}
+            >
+              <div className="field">
+                <label htmlFor="checkIn">Check in</label>
+                <input
+                  type="date"
+                  id="checkIn"
+                  value={checkIn}
+                  min={today}
+                  onChange={(e) => setCheckIn(e.target.value)}
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="checkOut">Check out</label>
+                <input
+                  type="date"
+                  id="checkOut"
+                  value={checkOut}
+                  min={checkIn}
+                  onChange={(e) => setCheckOut(e.target.value)}
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="guests">Guests</label>
+                <select
+                  id="guests"
+                  value={guests}
+                  onChange={(e) => setGuests(Number(e.target.value))}
+                >
+                  {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
+                    <option key={n} value={n}>
+                      {n} {n === 1 ? "guest" : "guests"}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </form>
+
+            {nights > 0 && (
+              <p style={{ color: "var(--text-2)", margin: "0 0 1rem" }}>
+                <strong>{bookable.length}</strong> units available for {nights}{" "}
+                {nights === 1 ? "night" : "nights"}
+              </p>
+            )}
+
+            <div className="book-units">
+              {bookable.map(({ unit, price }) => {
+                const taal = TAAL_VIEW_CODES.has(unit.code);
+                const selected = unitId === unit.id;
+                return (
+                  <button
+                    key={unit.id}
+                    className={`book-unit ${selected ? "selected" : ""}`}
+                    onClick={() => setUnitId(unit.id)}
+                    type="button"
+                  >
+                    <div className="bu-head">
+                      <span className="bu-code">
+                        {unit.tower}-{unit.code}{" "}
+                        {unit.buildingId === "west" ? "West" : "East"}
+                      </span>
+                      {unit.name && <span className="bu-name">{unit.name}</span>}
+                    </div>
+                    <div className="bu-facts">
+                      <span>{TYPE_LABEL[unit.type]}</span>
+                      <span>Sleeps {unit.maxGuests}</span>
+                      <span>{taal ? "Taal view" : "Ridge side"}</span>
+                    </div>
+                    {price && !price.requiresManualQuote && (
+                      <div className="bu-price">
+                        <span className="bu-total">
+                          {formatPHP(price.total)}
+                        </span>
+                        <span className="bu-per">
+                          {nights} {nights === 1 ? "night" : "nights"}
+                        </span>
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {unitId && (
+              <div style={{ textAlign: "right", padding: "1rem 0 2rem" }}>
+                <button
+                  className="btn"
+                  onClick={() => setStep("details")}
+                >
+                  Continue
+                </button>
+              </div>
+            )}
+          </>
+        )}
+
+        {step === "details" && selectedUnit && selectedPrice && (
+          <>
+            <h2 className="book-title">Your details</h2>
+
+            <div className="form-grid">
+              <div className="form-panel" style={{ background: "var(--surface)", border: "1px solid var(--line)", padding: "0" }}>
+                <h3 style={{ padding: "0.65rem 0.9rem", borderBottom: "1px solid var(--line)", margin: 0, fontSize: "0.65rem", letterSpacing: "0.17em", textTransform: "uppercase", fontWeight: 700, color: "var(--text-2)" }}>
+                  Guest Information
+                </h3>
+                <div className="form-body">
+                  <div className="field">
+                    <label htmlFor="name">Full name *</label>
+                    <input
+                      type="text"
+                      id="name"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="Maria Santos"
+                      required
+                    />
+                  </div>
+                  <div className="field-row">
+                    <div className="field">
+                      <label htmlFor="email">Email *</label>
+                      <input
+                        type="email"
+                        id="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="you@email.com"
+                        required
+                      />
+                    </div>
+                    <div className="field">
+                      <label htmlFor="phone">Phone</label>
+                      <input
+                        type="tel"
+                        id="phone"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        placeholder="09XX XXX XXXX"
+                      />
+                    </div>
+                  </div>
+                  <div className="field">
+                    <label htmlFor="requests">Special requests</label>
+                    <textarea
+                      id="requests"
+                      value={requests}
+                      onChange={(e) => setRequests(e.target.value)}
+                      rows={3}
+                      placeholder="Arrival time, extra pillows, etc."
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="form-aside">
+                <div className="panel price-summary">
+                  <h2>Booking Summary</h2>
+                  <div className="form-body">
+                    <div className="summary-row">
+                      <span>Unit</span>
+                      <span className="mono">
+                        {selectedUnit.tower}-{selectedUnit.code}{" "}
+                        {selectedUnit.buildingId === "west" ? "West" : "East"}
+                      </span>
+                    </div>
+                    {selectedUnit.name && (
+                      <div className="summary-row">
+                        <span>Name</span>
+                        <span>{selectedUnit.name}</span>
+                      </div>
+                    )}
+                    <div className="summary-row">
+                      <span>Check-in</span>
+                      <span className="mono">{checkIn}</span>
+                    </div>
+                    <div className="summary-row">
+                      <span>Check-out</span>
+                      <span className="mono">{checkOut}</span>
+                    </div>
+                    <div className="summary-row">
+                      <span>Nights</span>
+                      <span className="mono">{nights}</span>
+                    </div>
+                    <div className="summary-row">
+                      <span>Guests</span>
+                      <span className="mono">{guests}</span>
+                    </div>
+                    <div className="sep" />
+                    {selectedPrice.nights.map((n) => (
+                      <div className="summary-row sm" key={n.date}>
+                        <span>
+                          {n.date} {n.basis === "weekend" ? "(wknd)" : ""}
+                        </span>
+                        <span className="mono">{formatPHP(n.rate)}</span>
+                      </div>
+                    ))}
+                    <div className="sep" />
+                    <div className="summary-row total">
+                      <span>Total</span>
+                      <span className="mono">
+                        {formatPHP(selectedPrice.total)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", gap: "0.75rem" }}>
+                  <button
+                    className="btn btn-outline"
+                    style={{ flex: 1 }}
+                    onClick={() => setStep("select")}
+                  >
+                    Back
+                  </button>
+                  <button
+                    className="btn"
+                    style={{ flex: 2 }}
+                    disabled={!name.trim() || !email.trim()}
+                    onClick={() => setStep("confirm")}
+                  >
+                    Confirm booking
+                  </button>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+
+        {step === "confirm" && selectedUnit && selectedPrice && (
+          <div style={{ maxWidth: "600px", margin: "0 auto", padding: "2rem 0 4rem" }}>
+            <div style={{ textAlign: "center", marginBottom: "2rem" }}>
+              <div style={{ fontSize: "4rem", color: "var(--good)", lineHeight: 1 }}>&#10003;</div>
+              <h2 style={{ margin: "0.75rem 0 0.5rem", fontFamily: "var(--display)", fontWeight: 400, fontSize: "1.8rem" }}>
+                Booking request received
+              </h2>
+              <p style={{ color: "var(--text-2)" }}>
+                Thank you, {name}! Your reservation is being processed.
+              </p>
+            </div>
+
+            <div className="panel price-summary">
+              <h2>Reservation Details</h2>
+              <div className="form-body">
+                <div className="summary-row">
+                  <span>Unit</span>
+                  <span className="mono">
+                    {selectedUnit.tower}-{selectedUnit.code}{" "}
+                    {selectedUnit.name ?? (selectedUnit.buildingId === "west" ? "West" : "East")}
+                  </span>
+                </div>
+                <div className="summary-row">
+                  <span>Dates</span>
+                  <span className="mono">
+                    {checkIn} to {checkOut} ({nights} nights)
+                  </span>
+                </div>
+                <div className="summary-row">
+                  <span>Guests</span>
+                  <span className="mono">{guests}</span>
+                </div>
+                <div className="sep" />
+                <div className="summary-row total">
+                  <span>Total</span>
+                  <span className="mono">{formatPHP(selectedPrice.total)}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="panel" style={{ marginTop: "1rem" }}>
+              <h2>
+                Payment Instructions{" "}
+                <span className="hint">to confirm your booking</span>
+              </h2>
+              <div className="form-body">
+                <p style={{ fontSize: "0.85rem", color: "var(--text-2)" }}>
+                  To confirm your reservation, please send the reservation fee
+                  within 24 hours. Your booking will be held until payment is
+                  received.
+                </p>
+
+                <div className="pay-method">
+                  <h4>GCash</h4>
+                  <p className="mono">
+                    Name: <strong>(To be configured)</strong>
+                    <br />
+                    Number: <strong>(To be configured)</strong>
+                  </p>
+                </div>
+
+                <div className="pay-method">
+                  <h4>Bank Transfer</h4>
+                  <p className="mono">
+                    Bank: <strong>(To be configured)</strong>
+                    <br />
+                    Account: <strong>(To be configured)</strong>
+                  </p>
+                </div>
+
+                <p style={{ fontSize: "0.82rem", color: "var(--text-2)" }}>
+                  After sending, please reply to the confirmation message with a
+                  screenshot of your payment receipt. The owner will verify and
+                  confirm your booking.
+                </p>
+              </div>
+            </div>
+
+            <div style={{ textAlign: "center", paddingTop: "1.5rem" }}>
+              <Link href="/" className="btn">
+                Back to home
+              </Link>
+            </div>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}

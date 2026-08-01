@@ -78,6 +78,7 @@ export default async function Home({
           </div>
           <nav>
             <Link href="/">Stay</Link>
+            <Link href="/book">Book</Link>
             <Link href="/admin">Admin</Link>
           </nav>
         </div>
@@ -156,7 +157,13 @@ export default async function Home({
                       </ul>
 
                       {free ? (
-                        <span className="pill free">Available</span>
+                        <Link
+                          href={`/book?checkIn=${checkIn}&checkOut=${checkOut}&guests=${guests}`}
+                          className="pill free"
+                          style={{ textDecoration: "none" }}
+                        >
+                          Book now
+                        </Link>
                       ) : (
                         <span className="pill gone">Booked</span>
                       )}
