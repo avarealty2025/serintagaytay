@@ -1,7 +1,9 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Mark } from "../mark.tsx";
+import { Footer } from "../footer.tsx";
 import { UNITS, TAAL_VIEW_CODES } from "../../src/data/units.ts";
 import {
   quote,
@@ -22,15 +24,26 @@ const TYPE_LABEL: Record<string, string> = {
 
 type Step = "select" | "details" | "confirm";
 
+import { Suspense } from "react";
+
 export default function BookPage() {
+  return (
+    <Suspense>
+      <BookPageInner />
+    </Suspense>
+  );
+}
+
+function BookPageInner() {
+  const sp = useSearchParams();
   const today = toDateStr(new Date());
   const active = UNITS.filter((u) => u.active);
 
   const [step, setStep] = useState<Step>("select");
-  const [checkIn, setCheckIn] = useState(addDays(today, 1));
-  const [checkOut, setCheckOut] = useState(addDays(today, 3));
-  const [guests, setGuests] = useState(2);
-  const [unitId, setUnitId] = useState("");
+  const [checkIn, setCheckIn] = useState(sp.get("checkIn") || addDays(today, 1));
+  const [checkOut, setCheckOut] = useState(sp.get("checkOut") || addDays(today, 3));
+  const [guests, setGuests] = useState(Number(sp.get("guests")) || 2);
+  const [unitId, setUnitId] = useState(sp.get("unit") || "");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -353,6 +366,8 @@ export default function BookPage() {
           />
         )}
       </div>
+
+      <Footer />
     </>
   );
 }

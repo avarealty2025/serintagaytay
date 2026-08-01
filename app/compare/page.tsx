@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Mark } from "../mark.tsx";
+import { Footer } from "../footer.tsx";
 import { UNITS, TAAL_VIEW_CODES } from "../../src/data/units.ts";
 import { formatPHP } from "../../src/lib/pricing.ts";
 
@@ -14,9 +16,18 @@ const TYPE_LABEL: Record<string, string> = {
 };
 
 export default function ComparePage() {
+  return (
+    <Suspense>
+      <ComparePageInner />
+    </Suspense>
+  );
+}
+
+function ComparePageInner() {
+  const sp = useSearchParams();
   const active = UNITS.filter((u) => u.active);
-  const [unitA, setUnitA] = useState(active[0]?.id ?? "");
-  const [unitB, setUnitB] = useState(active[1]?.id ?? "");
+  const [unitA, setUnitA] = useState(sp.get("a") || active[0]?.id || "");
+  const [unitB, setUnitB] = useState(sp.get("b") || active[1]?.id || "");
 
   const a = active.find((u) => u.id === unitA);
   const b = active.find((u) => u.id === unitB);
@@ -28,7 +39,7 @@ export default function ComparePage() {
   const rows: { label: string; a: string; b: string; highlight?: boolean }[] =
     a && b
       ? [
-          { label: "Type", a: TYPE_LABEL[a.type], b: TYPE_LABEL[b.type] },
+          { label: "Type", a: TYPE_LABEL[a.type] ?? a.type, b: TYPE_LABEL[b.type] ?? b.type },
           { label: "Building", a: a.buildingId === "west" ? "Serin West" : "Serin East", b: b.buildingId === "west" ? "Serin West" : "Serin East" },
           { label: "Tower", a: `Tower ${a.tower}`, b: `Tower ${b.tower}` },
           { label: "Floor Area", a: a.sqm ? `${a.sqm} sqm` : "—", b: b.sqm ? `${b.sqm} sqm` : "—" },
@@ -208,6 +219,8 @@ export default function ComparePage() {
           </>
         )}
       </div>
+
+      <Footer />
     </>
   );
 }

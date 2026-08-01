@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import Link from "next/link";
 import { Mark, RidgePlate } from "./mark.tsx";
+import { Footer } from "./footer.tsx";
 import { UNITS, TAAL_VIEW_CODES } from "../src/data/units.ts";
 import { loadSheet } from "../src/data/sheet.ts";
 import { isAvailable } from "../src/lib/availability.ts";
@@ -96,10 +97,9 @@ export default async function Home({
         </div>
 
         <p className="notice">
-          <strong>Preview build.</strong> Availability is read from the owner&rsquo;s
-          booking sheet, not a database, and no booking can be completed yet.
-          Cleaning and extra-guest fees are not yet set, so totals below are
-          nightly rates only.
+          <strong>Direct booking.</strong> Rates shown include nightly charges.
+          Cleaning and extra-guest fees will be added at checkout if applicable.
+          Select your dates to see real-time availability and pricing.
         </p>
 
         <form className="searchbar" method="get">
@@ -161,7 +161,7 @@ export default async function Home({
                       <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
                         {free ? (
                           <Link
-                            href={`/book?checkIn=${checkIn}&checkOut=${checkOut}&guests=${guests}`}
+                            href={`/book?unit=${unit.id}&checkIn=${checkIn}&checkOut=${checkOut}&guests=${guests}`}
                             className="pill free"
                             style={{ textDecoration: "none" }}
                           >
@@ -221,6 +221,8 @@ export default async function Home({
           </>
         )}
       </div>
+
+      <Footer />
     </>
   );
 }

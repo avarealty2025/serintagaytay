@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Mark, RidgePlate } from "../../mark.tsx";
+import { Footer } from "../../footer.tsx";
 import { UNITS, TAAL_VIEW_CODES } from "../../../src/data/units.ts";
 import { formatPHP } from "../../../src/lib/pricing.ts";
 
@@ -127,12 +128,12 @@ export default async function UnitDetailPage({
         </div>
 
         <div className="ud-cta">
-          <Link href={`/book`} className="btn">
+          <Link href={`/book?unit=${unit.id}`} className="btn">
             Book this unit
           </Link>
           {similar.length > 0 && (
             <Link
-              href={`/compare?a=${unit.id}&b=${similar[0].id}`}
+              href={`/compare?a=${unit.id}&b=${similar[0]!.id}`}
               className="btn-outline"
             >
               Compare units
@@ -166,8 +167,9 @@ export default async function UnitDetailPage({
           </div>
         )}
 
-        <div style={{ paddingBottom: "3rem" }} />
       </div>
+
+      <Footer />
     </>
   );
 }
