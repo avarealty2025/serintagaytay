@@ -1,7 +1,6 @@
-import { join } from "node:path";
 import Link from "next/link";
 import { UNITS } from "../../../src/data/units.ts";
-import { loadSheet } from "../../../src/data/sheet.ts";
+import { getBookings } from "../../../src/data/db.ts";
 import { nightsBetween, toDateStr } from "../../../src/lib/dates.ts";
 import { formatPHP, quote } from "../../../src/lib/pricing.ts";
 
@@ -20,7 +19,7 @@ export default async function BookingsPage({
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const sp = await searchParams;
-  const { bookings } = loadSheet(join(process.cwd(), "data"));
+  const { bookings } = await getBookings();
 
   const filterSource = sp.source || "";
   const filterUnit = sp.unit || "";
@@ -158,7 +157,7 @@ export default async function BookingsPage({
                       </span>
                     </td>
                     <td className="tar mono">{amount || "—"}</td>
-                    <td className="balance-note">{b.balanceNote || "—"}</td>
+                    <td className="balance-note">{b.notes || "—"}</td>
                   </tr>
                 );
               })}

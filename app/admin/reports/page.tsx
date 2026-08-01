@@ -1,7 +1,6 @@
-import { join } from "node:path";
 import Link from "next/link";
 import { UNITS } from "../../../src/data/units.ts";
-import { loadSheet } from "../../../src/data/sheet.ts";
+import { getBookings } from "../../../src/data/db.ts";
 import { nightsBetween, toDateStr } from "../../../src/lib/dates.ts";
 import { formatPHP, quote, PricingError } from "../../../src/lib/pricing.ts";
 
@@ -36,7 +35,7 @@ interface UnitReport {
 
 export default async function ReportsPage() {
   const today = toDateStr(new Date());
-  const { bookings } = loadSheet(join(process.cwd(), "data"));
+  const { bookings } = await getBookings();
   const unitMap = new Map(UNITS.map((u) => [u.id, u]));
   const active = UNITS.filter((u) => u.active);
 

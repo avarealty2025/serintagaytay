@@ -1,9 +1,8 @@
-import { join } from "node:path";
 import Link from "next/link";
 import { Mark, RidgePlate } from "./mark.tsx";
 import { Footer } from "./footer.tsx";
 import { UNITS, TAAL_VIEW_CODES } from "../src/data/units.ts";
-import { loadSheet } from "../src/data/sheet.ts";
+import { getBookings } from "../src/data/db.ts";
 import { isAvailable } from "../src/lib/availability.ts";
 import { PricingError, formatPHP, quote } from "../src/lib/pricing.ts";
 import { addDays, nightsBetween, toDateStr } from "../src/lib/dates.ts";
@@ -37,7 +36,7 @@ export default async function Home({
   const checkOut = sp.checkOut || addDays(today, 3);
   const guests = Number(sp.guests) || 2;
 
-  const { bookings } = loadSheet(join(process.cwd(), "data"));
+  const { bookings } = await getBookings();
 
   let nights = 0;
   let rangeError: string | null = null;

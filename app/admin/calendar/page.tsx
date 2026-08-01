@@ -1,6 +1,5 @@
-import { join } from "node:path";
 import { UNITS } from "../../../src/data/units.ts";
-import { loadSheet } from "../../../src/data/sheet.ts";
+import { getBookings } from "../../../src/data/db.ts";
 import { addDays, dayOfWeek, nightsBetween, toDateStr } from "../../../src/lib/dates.ts";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +17,7 @@ export default async function CalendarPage({
   const start = sp.from || today;
   const windowEnd = addDays(start, WINDOW);
 
-  const { bookings } = loadSheet(join(process.cwd(), "data"));
+  const { bookings } = await getBookings();
   const active = UNITS.filter((u) => u.active);
   const days = Array.from({ length: WINDOW }, (_, i) => addDays(start, i));
 

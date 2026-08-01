@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { join } from "node:path";
-import { loadSheet } from "../../../../src/data/sheet.ts";
+import { getBookings } from "../../../../src/data/db.ts";
 import { UNITS } from "../../../../src/data/units.ts";
 import { generateICalFeed } from "../../../../src/lib/ical.ts";
 
@@ -17,7 +16,7 @@ export async function GET(
     return new NextResponse("Not found", { status: 404 });
   }
 
-  const { bookings } = loadSheet(join(process.cwd(), "data"));
+  const { bookings } = await getBookings();
   const unitBookings = bookings.filter((b) => b.unitId === unit.id);
 
   const events = unitBookings.map((b) => ({

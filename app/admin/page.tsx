@@ -1,7 +1,6 @@
-import { join } from "node:path";
 import Link from "next/link";
 import { UNITS } from "../../src/data/units.ts";
-import { loadSheet } from "../../src/data/sheet.ts";
+import { getBookings } from "../../src/data/db.ts";
 import { findAllOverlaps } from "../../src/lib/availability.ts";
 import { dayOfWeek, nightsBetween, toDateStr, addDays } from "../../src/lib/dates.ts";
 import { formatPHP, quote } from "../../src/lib/pricing.ts";
@@ -14,7 +13,7 @@ const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 export default async function Dashboard() {
   const today = toDateStr(new Date());
   const settings = getSettings();
-  const { bookings, problems } = loadSheet(join(process.cwd(), "data"));
+  const { bookings, problems } = await getBookings();
   const overlaps = findAllOverlaps(bookings);
   const unitMap = new Map(UNITS.map((u) => [u.id, u]));
   const active = UNITS.filter((u) => u.active);

@@ -1,6 +1,5 @@
-import { join } from "node:path";
 import { UNITS } from "../../../src/data/units.ts";
-import { loadSheet } from "../../../src/data/sheet.ts";
+import { getBookings } from "../../../src/data/db.ts";
 import { toDateStr, addDays } from "../../../src/lib/dates.ts";
 
 export const dynamic = "force-dynamic";
@@ -20,7 +19,7 @@ interface Task {
 export default async function TasksPage() {
   const today = toDateStr(new Date());
   const tomorrow = addDays(today, 1);
-  const { bookings } = loadSheet(join(process.cwd(), "data"));
+  const { bookings } = await getBookings();
   const unitMap = new Map(UNITS.map((u) => [u.id, u]));
 
   const tasks: Task[] = [];
