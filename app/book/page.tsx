@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Mark } from "../mark.tsx";
@@ -9,11 +9,11 @@ import {
   quote,
   formatPHP,
   PricingError,
-  LONG_STAY_NIGHTS,
 } from "../../src/lib/pricing.ts";
 import { nightsBetween, addDays, toDateStr } from "../../src/lib/dates.ts";
 import type { PriceBreakdown } from "../../src/lib/types.ts";
 import { getSettings } from "../../src/lib/settings.ts";
+import { Suspense } from "react";
 
 const TYPE_LABEL: Record<string, string> = {
   studio: "Studio",
@@ -22,9 +22,7 @@ const TYPE_LABEL: Record<string, string> = {
   "2br": "2 Bedrooms",
 };
 
-type Step = "select" | "details" | "submitted";
-
-import { Suspense } from "react";
+type Step = "select" | "details" | "payment" | "submitted";
 
 export default function BookPage() {
   return (
@@ -38,6 +36,7 @@ function BookPageInner() {
   const sp = useSearchParams();
   const today = toDateStr(new Date());
   const active = UNITS.filter((u) => u.active);
+  const settings = getSettings();
 
   const [step, setStep] = useState<Step>("select");
   const [checkIn, setCheckIn] = useState(sp.get("checkIn") || addDays(today, 1));
@@ -48,6 +47,12 @@ function BookPageInner() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [requests, setRequests] = useState("");
+
+  const [proofFile, setProofFile] = useState<File | null>(null);
+  const [proofPreview, setProofPreview] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [proofPath, setProofPath] = useState("");
+
   const [submitting, setSubmitting] = useState(false);
   const [bookingRef, setBookingRef] = useState("");
   const [submitError, setSubmitError] = useState("");
@@ -55,33 +60,50 @@ function BookPageInner() {
   const selectedUnit = active.find((u) => u.id === unitId);
 
   let nights = 0;
-  try {
-    nights = nightsBetween(checkIn, checkOut);
-  } catch {
-    /* skip */
-  }
+  try { nights = nightsBetween(checkIn, checkOut); } catch { /* skip */ }
 
   const results = active.map((unit) => {
     let price: PriceBreakdown | null = null;
     let error: string | null = null;
-    try {
-      price = quote(unit, checkIn, checkOut, guests);
-    } catch (e) {
+    try { price = quote(unit, checkIn, checkOut, guests); } catch (e) {
       error = e instanceof PricingError ? e.message : "Not available";
     }
     return { unit, price, error };
   });
 
-  const bookable = results.filter(
-    (r) => r.price && !r.price.requiresManualQuote && !r.error,
-  );
+  const bookable = results.filter((r) => r.price && !r.price.requiresManualQuote && !r.error);
 
   let selectedPrice: PriceBreakdown | null = null;
   if (selectedUnit) {
+    try { selectedPrice = quote(selectedUnit, checkIn, checkOut, guests); } catch { /* skip */ }
+  }
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setProofFile(file);
+    setProofPreview(URL.createObjectURL(file));
+    setProofPath("");
+  }
+
+  async function handleUpload() {
+    if (!proofFile) return;
+    setUploading(true);
+    setSubmitError("");
     try {
-      selectedPrice = quote(selectedUnit, checkIn, checkOut, guests);
+      const form = new FormData();
+      form.append("file", proofFile);
+      const res = await fetch("/api/upload-proof", { method: "POST", body: form });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        setSubmitError(data.error || "Upload failed");
+        return;
+      }
+      setProofPath(data.path);
     } catch {
-      /* skip */
+      setSubmitError("Upload failed. Please try again.");
+    } finally {
+      setUploading(false);
     }
   }
 
@@ -105,12 +127,13 @@ function BookPageInner() {
           source: "direct",
           grossAmount: selectedPrice.total,
           notes: requests || undefined,
+          proofPath: proofPath || undefined,
         }),
       });
 
       const data = await res.json();
       if (!res.ok || data.error) {
-        setSubmitError(data.error || "Failed to submit booking. Please try again.");
+        setSubmitError(data.error || "Failed to submit booking.");
         return;
       }
 
@@ -129,10 +152,7 @@ function BookPageInner() {
         <div className="wrap">
           <div className="lockup">
             <Mark />
-            <p className="brand">
-              Serin
-              <small>Tagaytay</small>
-            </p>
+            <p className="brand">Serin<small>Tagaytay</small></p>
           </div>
           <nav>
             <Link href="/">Stay</Link>
@@ -149,56 +169,40 @@ function BookPageInner() {
             <span className="step-l">Select unit</span>
           </div>
           <div className="step-line" />
-          <div className={`step-dot ${step === "details" ? "active" : step === "submitted" ? "done" : ""}`}>
+          <div className={`step-dot ${step === "details" ? "active" : step === "payment" || step === "submitted" ? "done" : ""}`}>
             <span className="step-n">2</span>
             <span className="step-l">Your details</span>
           </div>
           <div className="step-line" />
-          <div className={`step-dot ${step === "submitted" ? "active" : ""}`}>
+          <div className={`step-dot ${step === "payment" ? "active" : step === "submitted" ? "done" : ""}`}>
             <span className="step-n">3</span>
             <span className="step-l">Payment</span>
           </div>
+          <div className="step-line" />
+          <div className={`step-dot ${step === "submitted" ? "active" : ""}`}>
+            <span className="step-n">4</span>
+            <span className="step-l">Done</span>
+          </div>
         </div>
 
+        {/* STEP 1: Select unit */}
         {step === "select" && (
           <>
             <h2 className="book-title">Choose your dates and unit</h2>
-
-            <form
-              className="searchbar"
-              onSubmit={(e) => e.preventDefault()}
-            >
+            <form className="searchbar" onSubmit={(e) => e.preventDefault()}>
               <div className="field">
                 <label htmlFor="checkIn">Check in</label>
-                <input
-                  type="date"
-                  id="checkIn"
-                  value={checkIn}
-                  min={today}
-                  onChange={(e) => setCheckIn(e.target.value)}
-                />
+                <input type="date" id="checkIn" value={checkIn} min={today} onChange={(e) => setCheckIn(e.target.value)} />
               </div>
               <div className="field">
                 <label htmlFor="checkOut">Check out</label>
-                <input
-                  type="date"
-                  id="checkOut"
-                  value={checkOut}
-                  min={checkIn}
-                  onChange={(e) => setCheckOut(e.target.value)}
-                />
+                <input type="date" id="checkOut" value={checkOut} min={checkIn} onChange={(e) => setCheckOut(e.target.value)} />
               </div>
               <div className="field">
                 <label htmlFor="guests">Guests</label>
-                <select
-                  id="guests"
-                  value={guests}
-                  onChange={(e) => setGuests(Number(e.target.value))}
-                >
+                <select id="guests" value={guests} onChange={(e) => setGuests(Number(e.target.value))}>
                   {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
-                    <option key={n} value={n}>
-                      {n} {n === 1 ? "guest" : "guests"}
-                    </option>
+                    <option key={n} value={n}>{n} {n === 1 ? "guest" : "guests"}</option>
                   ))}
                 </select>
               </div>
@@ -206,8 +210,7 @@ function BookPageInner() {
 
             {nights > 0 && (
               <p style={{ color: "var(--text-2)", margin: "0 0 1rem" }}>
-                <strong>{bookable.length}</strong> units available for {nights}{" "}
-                {nights === 1 ? "night" : "nights"}
+                <strong>{bookable.length}</strong> units available for {nights} {nights === 1 ? "night" : "nights"}
               </p>
             )}
 
@@ -216,17 +219,9 @@ function BookPageInner() {
                 const taal = TAAL_VIEW_CODES.has(unit.code);
                 const selected = unitId === unit.id;
                 return (
-                  <button
-                    key={unit.id}
-                    className={`book-unit ${selected ? "selected" : ""}`}
-                    onClick={() => setUnitId(unit.id)}
-                    type="button"
-                  >
+                  <button key={unit.id} className={`book-unit ${selected ? "selected" : ""}`} onClick={() => setUnitId(unit.id)} type="button">
                     <div className="bu-head">
-                      <span className="bu-code">
-                        {unit.tower}-{unit.code}{" "}
-                        {unit.buildingId === "west" ? "West" : "East"}
-                      </span>
+                      <span className="bu-code">{unit.tower}-{unit.code} {unit.buildingId === "west" ? "West" : "East"}</span>
                       {unit.name && <span className="bu-name">{unit.name}</span>}
                     </div>
                     <div className="bu-facts">
@@ -236,12 +231,8 @@ function BookPageInner() {
                     </div>
                     {price && !price.requiresManualQuote && (
                       <div className="bu-price">
-                        <span className="bu-total">
-                          {formatPHP(price.total)}
-                        </span>
-                        <span className="bu-per">
-                          {nights} {nights === 1 ? "night" : "nights"}
-                        </span>
+                        <span className="bu-total">{formatPHP(price.total)}</span>
+                        <span className="bu-per">{nights} {nights === 1 ? "night" : "nights"}</span>
                       </div>
                     )}
                   </button>
@@ -251,21 +242,16 @@ function BookPageInner() {
 
             {unitId && (
               <div style={{ textAlign: "right", padding: "1rem 0 2rem" }}>
-                <button
-                  className="btn"
-                  onClick={() => setStep("details")}
-                >
-                  Continue
-                </button>
+                <button className="btn" onClick={() => setStep("details")}>Continue</button>
               </div>
             )}
           </>
         )}
 
+        {/* STEP 2: Guest details */}
         {step === "details" && selectedUnit && selectedPrice && (
           <>
             <h2 className="book-title">Your details</h2>
-
             <div className="form-grid">
               <div className="form-panel" style={{ background: "var(--surface)", border: "1px solid var(--line)", padding: "0" }}>
                 <h3 style={{ padding: "0.65rem 0.9rem", borderBottom: "1px solid var(--line)", margin: 0, fontSize: "0.65rem", letterSpacing: "0.17em", textTransform: "uppercase", fontWeight: 700, color: "var(--text-2)" }}>
@@ -274,47 +260,21 @@ function BookPageInner() {
                 <div className="form-body">
                   <div className="field">
                     <label htmlFor="name">Full name *</label>
-                    <input
-                      type="text"
-                      id="name"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      placeholder="Maria Santos"
-                      required
-                    />
+                    <input type="text" id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Maria Santos" required />
                   </div>
                   <div className="field-row">
                     <div className="field">
                       <label htmlFor="email">Email *</label>
-                      <input
-                        type="email"
-                        id="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        placeholder="you@email.com"
-                        required
-                      />
+                      <input type="email" id="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@email.com" required />
                     </div>
                     <div className="field">
                       <label htmlFor="phone">Phone</label>
-                      <input
-                        type="tel"
-                        id="phone"
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
-                        placeholder="09XX XXX XXXX"
-                      />
+                      <input type="tel" id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="09XX XXX XXXX" />
                     </div>
                   </div>
                   <div className="field">
                     <label htmlFor="requests">Special requests</label>
-                    <textarea
-                      id="requests"
-                      value={requests}
-                      onChange={(e) => setRequests(e.target.value)}
-                      rows={3}
-                      placeholder="Arrival time, extra pillows, etc."
-                    />
+                    <textarea id="requests" value={requests} onChange={(e) => setRequests(e.target.value)} rows={3} placeholder="Arrival time, extra pillows, etc." />
                   </div>
                 </div>
               </div>
@@ -323,75 +283,27 @@ function BookPageInner() {
                 <div className="panel price-summary">
                   <h2>Booking Summary</h2>
                   <div className="form-body">
-                    <div className="summary-row">
-                      <span>Unit</span>
-                      <span className="mono">
-                        {selectedUnit.tower}-{selectedUnit.code}{" "}
-                        {selectedUnit.buildingId === "west" ? "West" : "East"}
-                      </span>
-                    </div>
-                    {selectedUnit.name && (
-                      <div className="summary-row">
-                        <span>Name</span>
-                        <span>{selectedUnit.name}</span>
-                      </div>
-                    )}
-                    <div className="summary-row">
-                      <span>Check-in</span>
-                      <span className="mono">{checkIn}</span>
-                    </div>
-                    <div className="summary-row">
-                      <span>Check-out</span>
-                      <span className="mono">{checkOut}</span>
-                    </div>
-                    <div className="summary-row">
-                      <span>Nights</span>
-                      <span className="mono">{nights}</span>
-                    </div>
-                    <div className="summary-row">
-                      <span>Guests</span>
-                      <span className="mono">{guests}</span>
-                    </div>
+                    <div className="summary-row"><span>Unit</span><span className="mono">{selectedUnit.tower}-{selectedUnit.code} {selectedUnit.buildingId === "west" ? "West" : "East"}</span></div>
+                    {selectedUnit.name && <div className="summary-row"><span>Name</span><span>{selectedUnit.name}</span></div>}
+                    <div className="summary-row"><span>Check-in</span><span className="mono">{checkIn}</span></div>
+                    <div className="summary-row"><span>Check-out</span><span className="mono">{checkOut}</span></div>
+                    <div className="summary-row"><span>Nights</span><span className="mono">{nights}</span></div>
+                    <div className="summary-row"><span>Guests</span><span className="mono">{guests}</span></div>
                     <div className="sep" />
                     {selectedPrice.nights.map((n) => (
                       <div className="summary-row sm" key={n.date}>
-                        <span>
-                          {n.date} {n.basis === "weekend" ? "(wknd)" : ""}
-                        </span>
+                        <span>{n.date} {n.basis === "weekend" ? "(wknd)" : ""}</span>
                         <span className="mono">{formatPHP(n.rate)}</span>
                       </div>
                     ))}
                     <div className="sep" />
-                    <div className="summary-row total">
-                      <span>Total</span>
-                      <span className="mono">
-                        {formatPHP(selectedPrice.total)}
-                      </span>
-                    </div>
+                    <div className="summary-row total"><span>Total</span><span className="mono">{formatPHP(selectedPrice.total)}</span></div>
                   </div>
                 </div>
-
-                {submitError && (
-                  <p style={{ color: "var(--crit)", fontSize: "0.82rem", margin: "0.5rem 0" }}>
-                    {submitError}
-                  </p>
-                )}
-
                 <div style={{ display: "flex", gap: "0.75rem" }}>
-                  <button
-                    className="btn btn-outline"
-                    style={{ flex: 1 }}
-                    onClick={() => setStep("select")}
-                  >
-                    Back
-                  </button>
-                  <button
-                    className="btn"
-                    style={{ flex: 2 }}
-                    disabled={!name.trim() || !email.trim() || submitting}
-                    onClick={handleSubmitBooking}
-                  >
-                    {submitting ? "Submitting..." : "Submit booking request"}
+                  <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => setStep("select")}>Back</button>
+                  <button className="btn" style={{ flex: 2 }} disabled={!name.trim() || !email.trim()} onClick={() => setStep("payment")}>
+                    Proceed to payment
                   </button>
                 </div>
               </div>
@@ -399,187 +311,149 @@ function BookPageInner() {
           </>
         )}
 
-        {step === "submitted" && selectedUnit && selectedPrice && (
-          <SubmittedStep
-            unit={selectedUnit}
-            price={selectedPrice}
-            guestName={name}
-            checkIn={checkIn}
-            checkOut={checkOut}
-            nights={nights}
-            guests={guests}
-            bookingRef={bookingRef}
-          />
+        {/* STEP 3: Payment + proof upload */}
+        {step === "payment" && selectedUnit && selectedPrice && (
+          <div style={{ maxWidth: "640px", margin: "0 auto", padding: "1rem 0 4rem" }}>
+            <h2 className="book-title">Send payment &amp; upload proof</h2>
+
+            <div className="panel" style={{ marginBottom: "1rem" }}>
+              <h2>Payment Channels</h2>
+              <div className="form-body">
+                <p style={{ fontSize: "0.85rem", color: "var(--text-2)", margin: "0 0 1rem" }}>
+                  Send <strong>{formatPHP(selectedPrice.total)}</strong> to any of the channels below, then upload a screenshot of your payment.
+                </p>
+
+                {settings.payment.gcashName ? (
+                  <div className="pay-method">
+                    <h4>GCash</h4>
+                    <p className="mono">
+                      Name: <strong>{settings.payment.gcashName}</strong><br />
+                      Number: <strong>{settings.payment.gcashNumber}</strong>
+                    </p>
+                  </div>
+                ) : (
+                  <div className="pay-method">
+                    <h4>GCash</h4>
+                    <p style={{ fontSize: "0.82rem", color: "var(--text-3)", margin: 0 }}>To be configured by admin</p>
+                  </div>
+                )}
+
+                {settings.payment.bankName ? (
+                  <div className="pay-method">
+                    <h4>Bank Transfer</h4>
+                    <p className="mono">
+                      Bank: <strong>{settings.payment.bankName}</strong><br />
+                      Account Name: <strong>{settings.payment.bankAccountName}</strong><br />
+                      Account No.: <strong>{settings.payment.bankAccountNumber}</strong>
+                    </p>
+                  </div>
+                ) : (
+                  <div className="pay-method">
+                    <h4>Bank Transfer</h4>
+                    <p style={{ fontSize: "0.82rem", color: "var(--text-3)", margin: 0 }}>To be configured by admin</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="panel">
+              <h2>Upload Payment Proof</h2>
+              <div className="form-body">
+                <p style={{ fontSize: "0.85rem", color: "var(--text-2)", margin: "0 0 1rem" }}>
+                  Take a screenshot of your GCash/bank transfer confirmation and upload it here.
+                </p>
+
+                <div style={{ border: "2px dashed var(--line)", borderRadius: "8px", padding: "2rem", textAlign: "center", background: proofPreview ? "none" : "var(--surface)" }}>
+                  {proofPreview ? (
+                    <div>
+                      <img
+                        src={proofPreview}
+                        alt="Payment proof"
+                        style={{ maxWidth: "100%", maxHeight: "300px", borderRadius: "8px", marginBottom: "0.75rem" }}
+                      />
+                      <br />
+                      {proofPath ? (
+                        <span style={{ color: "var(--good)", fontSize: "0.85rem", fontWeight: 600 }}>
+                          &#10003; Uploaded successfully
+                        </span>
+                      ) : (
+                        <button className="btn" onClick={handleUpload} disabled={uploading} style={{ fontSize: "0.85rem" }}>
+                          {uploading ? "Uploading..." : "Upload this image"}
+                        </button>
+                      )}
+                      <br />
+                      <button
+                        type="button"
+                        onClick={() => { setProofFile(null); setProofPreview(""); setProofPath(""); }}
+                        style={{ background: "none", border: "none", color: "var(--text-3)", cursor: "pointer", fontSize: "0.78rem", marginTop: "0.5rem" }}
+                      >
+                        Choose a different image
+                      </button>
+                    </div>
+                  ) : (
+                    <label style={{ cursor: "pointer", display: "block" }}>
+                      <div style={{ fontSize: "2.5rem", marginBottom: "0.5rem" }}>&#128247;</div>
+                      <p style={{ color: "var(--text-2)", fontSize: "0.85rem", margin: "0 0 0.5rem" }}>
+                        Click to select payment screenshot
+                      </p>
+                      <p style={{ color: "var(--text-3)", fontSize: "0.75rem", margin: 0 }}>
+                        JPG, PNG, or WebP — max 10MB
+                      </p>
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp,image/heic"
+                        onChange={handleFileChange}
+                        style={{ display: "none" }}
+                      />
+                    </label>
+                  )}
+                </div>
+
+                {submitError && (
+                  <p style={{ color: "var(--crit)", fontSize: "0.82rem", margin: "0.75rem 0 0" }}>{submitError}</p>
+                )}
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: "0.75rem", marginTop: "1.5rem" }}>
+              <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => setStep("details")}>Back</button>
+              <button
+                className="btn"
+                style={{ flex: 2 }}
+                disabled={!proofPath || submitting}
+                onClick={handleSubmitBooking}
+              >
+                {submitting ? "Submitting..." : "Submit booking with proof"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* STEP 4: Submitted */}
+        {step === "submitted" && (
+          <div style={{ maxWidth: "560px", margin: "0 auto", padding: "2rem 0 4rem", textAlign: "center" }}>
+            <div style={{ fontSize: "3rem", lineHeight: 1 }}>&#10003;</div>
+            <h2 style={{ margin: "0.75rem 0 0.5rem", fontFamily: "var(--display)", fontWeight: 400, fontSize: "1.8rem" }}>
+              Booking submitted!
+            </h2>
+            <p style={{ color: "var(--text-2)", marginBottom: "0.5rem" }}>
+              Thank you, {name}! We received your booking and payment proof.
+            </p>
+            <p style={{ color: "var(--text-2)" }}>
+              We will verify your payment and send a <strong>confirmation email</strong> to <strong>{email}</strong> once approved.
+            </p>
+            <p style={{ fontFamily: "var(--mono)", fontSize: "0.82rem", color: "var(--text-3)" }}>
+              Reference: {bookingRef}
+            </p>
+
+            <div style={{ display: "flex", gap: "0.75rem", justifyContent: "center", paddingTop: "1.5rem" }}>
+              <Link href="/" className="btn">Back to home</Link>
+            </div>
+          </div>
         )}
       </div>
 
       <Footer />
     </>
-  );
-}
-
-function SubmittedStep({
-  unit,
-  price,
-  guestName,
-  checkIn,
-  checkOut,
-  nights,
-  guests,
-  bookingRef,
-}: {
-  unit: (typeof UNITS)[number];
-  price: PriceBreakdown;
-  guestName: string;
-  checkIn: string;
-  checkOut: string;
-  nights: number;
-  guests: number;
-  bookingRef: string;
-}) {
-  const settings = getSettings();
-
-  return (
-    <div style={{ maxWidth: "600px", margin: "0 auto", padding: "2rem 0 4rem" }}>
-      <div style={{ textAlign: "center", marginBottom: "2rem" }}>
-        <div style={{ fontSize: "3rem", lineHeight: 1 }}>&#128228;</div>
-        <h2
-          style={{
-            margin: "0.75rem 0 0.5rem",
-            fontFamily: "var(--display)",
-            fontWeight: 400,
-            fontSize: "1.8rem",
-          }}
-        >
-          Booking request submitted
-        </h2>
-        <p style={{ color: "var(--text-2)" }}>
-          Thank you, {guestName}! To confirm your reservation, please send your payment using the details below.
-        </p>
-        <p
-          style={{
-            fontFamily: "var(--mono)",
-            fontSize: "0.82rem",
-            color: "var(--text-3)",
-          }}
-        >
-          Reference: {bookingRef}
-        </p>
-      </div>
-
-      <div className="panel price-summary">
-        <h2>Reservation Summary</h2>
-        <div className="form-body">
-          <div className="summary-row">
-            <span>Unit</span>
-            <span className="mono">
-              {unit.tower}-{unit.code}{" "}
-              {unit.name ?? (unit.buildingId === "west" ? "West" : "East")}
-            </span>
-          </div>
-          <div className="summary-row">
-            <span>Dates</span>
-            <span className="mono">
-              {checkIn} to {checkOut} ({nights} nights)
-            </span>
-          </div>
-          <div className="summary-row">
-            <span>Guests</span>
-            <span className="mono">{guests}</span>
-          </div>
-          <div className="summary-row">
-            <span>Check-in</span>
-            <span>{settings.booking.checkInTime}</span>
-          </div>
-          <div className="summary-row">
-            <span>Check-out</span>
-            <span>{settings.booking.checkOutTime}</span>
-          </div>
-          <div className="sep" />
-          <div className="summary-row total">
-            <span>Total</span>
-            <span className="mono">{formatPHP(price.total)}</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="panel" style={{ marginTop: "1rem" }}>
-        <h2>
-          Payment Channels{" "}
-          <span className="hint">send payment to confirm your booking</span>
-        </h2>
-        <div className="form-body">
-          <p style={{ fontSize: "0.85rem", color: "var(--text-2)" }}>
-            Please send the <strong>reservation fee</strong> within{" "}
-            {settings.booking.holdDurationHours} hours to secure your booking.
-            Include your booking reference <strong>{bookingRef}</strong> in the payment note.
-          </p>
-
-          {settings.payment.gcashName ? (
-            <div className="pay-method">
-              <h4>GCash</h4>
-              <p className="mono">
-                Name: <strong>{settings.payment.gcashName}</strong>
-                <br />
-                Number: <strong>{settings.payment.gcashNumber}</strong>
-              </p>
-            </div>
-          ) : (
-            <div className="pay-method">
-              <h4>GCash</h4>
-              <p style={{ fontSize: "0.82rem", color: "var(--text-3)", margin: 0 }}>
-                To be configured by admin
-              </p>
-            </div>
-          )}
-
-          {settings.payment.bankName ? (
-            <div className="pay-method">
-              <h4>Bank Transfer</h4>
-              <p className="mono">
-                Bank: <strong>{settings.payment.bankName}</strong>
-                <br />
-                Account Name: <strong>{settings.payment.bankAccountName}</strong>
-                <br />
-                Account No.: <strong>{settings.payment.bankAccountNumber}</strong>
-              </p>
-            </div>
-          ) : (
-            <div className="pay-method">
-              <h4>Bank Transfer</h4>
-              <p style={{ fontSize: "0.82rem", color: "var(--text-3)", margin: 0 }}>
-                To be configured by admin
-              </p>
-            </div>
-          )}
-
-          {settings.payment.instructions && (
-            <p style={{ fontSize: "0.82rem", color: "var(--text-2)" }}>
-              {settings.payment.instructions}
-            </p>
-          )}
-
-          <div style={{ marginTop: "1rem", padding: "12px 16px", background: "var(--surface-alt, #f8f6f2)", borderRadius: "8px", borderLeft: "3px solid var(--warn)" }}>
-            <p style={{ fontSize: "0.82rem", color: "var(--text-2)", margin: 0 }}>
-              <strong>Important:</strong> Your booking confirmation and receipt will be sent to your email once we verify your payment.
-              Unconfirmed bookings will be released after {settings.booking.holdDurationHours} hours.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div
-        style={{
-          display: "flex",
-          gap: "0.75rem",
-          justifyContent: "center",
-          paddingTop: "1.5rem",
-        }}
-      >
-        <Link href="/" className="btn-outline">
-          Back to home
-        </Link>
-      </div>
-    </div>
   );
 }

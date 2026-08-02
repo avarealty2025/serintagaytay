@@ -1166,6 +1166,9 @@ a.btn {
   margin: 0;
   font-size: 0.82rem;
 }
+.pay-method + .pay-method {
+  margin-top: 0.5rem;
+}
 
 /* -- dashboard ---------------------------------------------------------- */
 

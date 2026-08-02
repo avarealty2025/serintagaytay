@@ -207,6 +207,7 @@ export async function createBooking(data: {
   source: BookingSource;
   grossAmount: number;
   notes?: string;
+  proofPath?: string;
 }): Promise<{ id: string | null; error: string | null }> {
   if (!isSupabaseConfigured) {
     return { id: `local-${Date.now()}`, error: null };
@@ -245,6 +246,7 @@ export async function createBooking(data: {
       status: "pending_payment",
       gross_amount: data.grossAmount,
       notes: data.notes || null,
+      proof_path: data.proofPath || null,
     })
     .select("id")
     .single();
