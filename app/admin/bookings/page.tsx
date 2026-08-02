@@ -120,6 +120,7 @@ export default async function BookingsPage({
                 <th>Source</th>
                 <th className="tar">Amount</th>
                 <th>Status</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
@@ -159,6 +160,14 @@ export default async function BookingsPage({
                     </td>
                     <td className="tar mono">{amount || "—"}</td>
                     <td><ConfirmBtn bookingId={b.id} status={b.status} /></td>
+                    <td>
+                      <Link
+                        href={`/admin/bookings/${b.id}/edit`}
+                        style={{ fontSize: "0.72rem", color: "var(--accent)", fontWeight: 600, textDecoration: "none" }}
+                      >
+                        Edit
+                      </Link>
+                    </td>
                   </tr>
                 );
               })}

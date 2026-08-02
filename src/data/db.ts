@@ -118,7 +118,10 @@ export interface DbBooking {
   checkOut: string;
   status: BookingStatus;
   guest: string;
+  guestEmail: string;
+  guestPhone: string;
   guests: number;
+  guestList: string[];
   source: BookingSource | null;
   grossAmount: number;
   notes: string | null;
@@ -136,7 +139,10 @@ export async function getBookings(): Promise<{ bookings: DbBooking[]; problems: 
         checkOut: b.checkOut,
         status: b.status,
         guest: b.guest,
+        guestEmail: "",
+        guestPhone: "",
         guests: b.guests,
+        guestList: [],
         source: b.source,
         grossAmount: 0,
         notes: null,
@@ -151,7 +157,7 @@ export async function getBookings(): Promise<{ bookings: DbBooking[]; problems: 
     const idMap = await getUnitIdMap();
     const { data, error } = await sb
       .from("bookings")
-      .select("*, guests!left(name)")
+      .select("*, guests!left(name, email, phone)")
       .is("deleted_at", null)
       .order("check_in", { ascending: false });
 
@@ -160,7 +166,8 @@ export async function getBookings(): Promise<{ bookings: DbBooking[]; problems: 
       return {
         bookings: sheet.bookings.map((b) => ({
           id: b.id, unitId: b.unitId, checkIn: b.checkIn, checkOut: b.checkOut,
-          status: b.status, guest: b.guest, guests: b.guests, source: b.source,
+          status: b.status, guest: b.guest, guestEmail: "", guestPhone: "",
+          guests: b.guests, guestList: [], source: b.source,
           grossAmount: 0, notes: null, createdAt: "",
         })),
         problems: sheet.problems,
@@ -168,19 +175,25 @@ export async function getBookings(): Promise<{ bookings: DbBooking[]; problems: 
     }
 
     return {
-      bookings: data.map((row) => ({
-        id: row.id,
-        unitId: idMap.get(row.unit_id) ?? row.unit_id,
-        checkIn: row.check_in,
-        checkOut: row.check_out,
-        status: row.status as BookingStatus,
-        guest: (row.guests as { name: string } | null)?.name ?? "",
-        guests: row.guests_count,
-        source: row.source as BookingSource,
-        grossAmount: Number(row.gross_amount),
-        notes: row.notes,
-        createdAt: row.created_at,
-      })),
+      bookings: data.map((row) => {
+        const guestRec = row.guests as { name: string; email: string; phone: string } | null;
+        return {
+          id: row.id,
+          unitId: idMap.get(row.unit_id) ?? row.unit_id,
+          checkIn: row.check_in,
+          checkOut: row.check_out,
+          status: row.status as BookingStatus,
+          guest: guestRec?.name ?? "",
+          guestEmail: guestRec?.email ?? "",
+          guestPhone: guestRec?.phone ?? "",
+          guests: row.guests_count,
+          guestList: row.guest_list ?? [],
+          source: row.source as BookingSource,
+          grossAmount: Number(row.gross_amount),
+          notes: row.notes,
+          createdAt: row.created_at,
+        };
+      }),
       problems: [],
     };
   } catch {
@@ -188,7 +201,8 @@ export async function getBookings(): Promise<{ bookings: DbBooking[]; problems: 
     return {
       bookings: sheet.bookings.map((b) => ({
         id: b.id, unitId: b.unitId, checkIn: b.checkIn, checkOut: b.checkOut,
-        status: b.status, guest: b.guest, guests: b.guests, source: b.source,
+        status: b.status, guest: b.guest, guestEmail: "", guestPhone: "",
+        guests: b.guests, guestList: [], source: b.source,
         grossAmount: 0, notes: null, createdAt: "",
       })),
       problems: sheet.problems,
@@ -208,6 +222,7 @@ export async function createBooking(data: {
   grossAmount: number;
   notes?: string;
   proofPath?: string;
+  guestList?: string[];
 }): Promise<{ id: string | null; error: string | null }> {
   if (!isSupabaseConfigured) {
     return { id: `local-${Date.now()}`, error: null };
@@ -247,12 +262,62 @@ export async function createBooking(data: {
       gross_amount: data.grossAmount,
       notes: data.notes || null,
       proof_path: data.proofPath || null,
+      guest_list: data.guestList?.length ? data.guestList : [],
     })
     .select("id")
     .single();
 
   if (error) return { id: null, error: error.message };
   return { id: booking?.id ?? null, error: null };
+}
+
+export async function updateBooking(
+  id: string,
+  data: Partial<{
+    checkIn: string;
+    checkOut: string;
+    guests: number;
+    guestList: string[];
+    source: string;
+    grossAmount: number;
+    notes: string;
+    status: string;
+    guestName: string;
+    guestEmail: string;
+    guestPhone: string;
+  }>,
+): Promise<{ error: string | null }> {
+  if (!isSupabaseConfigured) return { error: "Supabase not configured" };
+  const sb = getSupabaseAdmin();
+
+  const bookingUpdate: Record<string, unknown> = {};
+  if (data.checkIn !== undefined) bookingUpdate.check_in = data.checkIn;
+  if (data.checkOut !== undefined) bookingUpdate.check_out = data.checkOut;
+  if (data.guests !== undefined) bookingUpdate.guests_count = data.guests;
+  if (data.guestList !== undefined) bookingUpdate.guest_list = data.guestList;
+  if (data.source !== undefined) bookingUpdate.source = data.source;
+  if (data.grossAmount !== undefined) bookingUpdate.gross_amount = data.grossAmount;
+  if (data.notes !== undefined) bookingUpdate.notes = data.notes || null;
+  if (data.status !== undefined) bookingUpdate.status = data.status;
+  bookingUpdate.updated_at = new Date().toISOString();
+
+  if (Object.keys(bookingUpdate).length > 1) {
+    const { error } = await sb.from("bookings").update(bookingUpdate).eq("id", id);
+    if (error) return { error: error.message };
+  }
+
+  if (data.guestName !== undefined || data.guestEmail !== undefined || data.guestPhone !== undefined) {
+    const { data: booking } = await sb.from("bookings").select("guest_id").eq("id", id).single();
+    if (booking?.guest_id) {
+      const guestUpdate: Record<string, unknown> = {};
+      if (data.guestName !== undefined) guestUpdate.name = data.guestName;
+      if (data.guestEmail !== undefined) guestUpdate.email = data.guestEmail || null;
+      if (data.guestPhone !== undefined) guestUpdate.phone = data.guestPhone || null;
+      await sb.from("guests").update(guestUpdate).eq("id", booking.guest_id);
+    }
+  }
+
+  return { error: null };
 }
 
 // ---------------------------------------------------------------------------

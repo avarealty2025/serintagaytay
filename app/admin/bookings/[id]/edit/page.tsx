@@ -1,0 +1,288 @@
+"use client";
+import { useState, useEffect } from "react";
+import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
+import { UNITS } from "../../../../../src/data/units.ts";
+
+const TYPE_LABEL: Record<string, string> = {
+  studio: "Studio",
+  exec_studio: "Exec Studio",
+  "1br": "1 BR",
+  "2br": "2 BR",
+};
+
+const SOURCES = [
+  { value: "direct", label: "Direct" },
+  { value: "airbnb", label: "Airbnb" },
+  { value: "agoda", label: "Agoda" },
+  { value: "facebook", label: "Facebook" },
+  { value: "manual", label: "Manual" },
+];
+
+const STATUSES = [
+  { value: "pending_payment", label: "Pending Payment" },
+  { value: "confirmed", label: "Confirmed" },
+  { value: "checked_in", label: "Checked In" },
+  { value: "completed", label: "Completed" },
+  { value: "cancelled", label: "Cancelled" },
+  { value: "no_show", label: "No Show" },
+];
+
+interface BookingData {
+  id: string;
+  unitId: string;
+  checkIn: string;
+  checkOut: string;
+  status: string;
+  guestName: string;
+  guestEmail: string;
+  guestPhone: string;
+  guests: number;
+  guestList: string[];
+  source: string;
+  grossAmount: number;
+  notes: string;
+}
+
+export default function EditBookingPage() {
+  const params = useParams();
+  const router = useRouter();
+  const bookingId = params.id as string;
+  const active = UNITS.filter((u) => u.active);
+
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
+
+  const [checkIn, setCheckIn] = useState("");
+  const [checkOut, setCheckOut] = useState("");
+  const [guests, setGuests] = useState(2);
+  const [guestList, setGuestList] = useState<string[]>([""]);
+  const [source, setSource] = useState("direct");
+  const [status, setStatus] = useState("pending_payment");
+  const [guestName, setGuestName] = useState("");
+  const [guestEmail, setGuestEmail] = useState("");
+  const [guestPhone, setGuestPhone] = useState("");
+  const [notes, setNotes] = useState("");
+  const [grossAmount, setGrossAmount] = useState(0);
+
+  useEffect(() => {
+    fetch(`/api/bookings/${bookingId}`)
+      .then((r) => r.json())
+      .then((data: BookingData) => {
+        setCheckIn(data.checkIn);
+        setCheckOut(data.checkOut);
+        setGuests(data.guests);
+        setGuestList(data.guestList?.length ? data.guestList : [""]);
+        setSource(data.source || "direct");
+        setStatus(data.status);
+        setGuestName(data.guestName);
+        setGuestEmail(data.guestEmail || "");
+        setGuestPhone(data.guestPhone || "");
+        setNotes(data.notes || "");
+        setGrossAmount(data.grossAmount || 0);
+        setLoading(false);
+      })
+      .catch(() => {
+        setError("Failed to load booking");
+        setLoading(false);
+      });
+  }, [bookingId]);
+
+  async function handleSave() {
+    setSaving(true);
+    setError("");
+    setSuccess(false);
+
+    try {
+      const res = await fetch(`/api/bookings/${bookingId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          checkIn,
+          checkOut,
+          guests: guestList.filter((g) => g.trim()).length || guests,
+          guestList: guestList.filter((g) => g.trim()),
+          source,
+          status,
+          guestName,
+          guestEmail,
+          guestPhone,
+          notes,
+          grossAmount,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        setError(data.error || "Failed to save");
+        return;
+      }
+
+      setSuccess(true);
+      setTimeout(() => router.push("/admin/bookings"), 1200);
+    } catch {
+      setError("Connection error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="page-head">
+        <h1 className="today">Loading...</h1>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="page-head">
+        <h1 className="today">Edit Booking</h1>
+        <Link href="/admin/bookings" className="btn btn-outline">
+          Back
+        </Link>
+      </div>
+
+      {success && (
+        <div className="notice" style={{ background: "var(--good)", color: "#fff", marginBottom: "1rem" }}>
+          Booking updated successfully. Redirecting...
+        </div>
+      )}
+      {error && (
+        <div className="notice" style={{ background: "var(--crit)", color: "#fff", marginBottom: "1rem" }}>
+          {error}
+        </div>
+      )}
+
+      <div className="form-grid">
+        <div className="panel form-panel">
+          <h2>Booking Details</h2>
+          <div className="form-body">
+            <div className="field-row">
+              <div className="field">
+                <label htmlFor="status">Status</label>
+                <select id="status" value={status} onChange={(e) => setStatus(e.target.value)}>
+                  {STATUSES.map((s) => (
+                    <option key={s.value} value={s.value}>{s.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="field">
+                <label htmlFor="source">Source</label>
+                <select id="source" value={source} onChange={(e) => setSource(e.target.value)}>
+                  {SOURCES.map((s) => (
+                    <option key={s.value} value={s.value}>{s.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="field-row">
+              <div className="field">
+                <label htmlFor="checkIn">Check-in</label>
+                <input type="date" id="checkIn" value={checkIn} onChange={(e) => setCheckIn(e.target.value)} />
+              </div>
+              <div className="field">
+                <label htmlFor="checkOut">Check-out</label>
+                <input type="date" id="checkOut" value={checkOut} onChange={(e) => setCheckOut(e.target.value)} />
+              </div>
+            </div>
+
+            <div className="field-row">
+              <div className="field">
+                <label htmlFor="grossAmount">Amount (PHP)</label>
+                <input
+                  type="number"
+                  id="grossAmount"
+                  value={grossAmount}
+                  onChange={(e) => setGrossAmount(Number(e.target.value))}
+                  min={0}
+                  step={0.01}
+                />
+              </div>
+              <div className="field">
+                <label>Pax</label>
+                <input type="text" value={guestList.filter((g) => g.trim()).length || guests} disabled />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="form-aside">
+          <div className="panel form-panel">
+            <h2>Guest Information</h2>
+            <div className="form-body">
+              <div className="field">
+                <label htmlFor="guestName">Primary guest name</label>
+                <input type="text" id="guestName" value={guestName} onChange={(e) => setGuestName(e.target.value)} />
+              </div>
+              <div className="field-row">
+                <div className="field">
+                  <label htmlFor="guestEmail">Email</label>
+                  <input type="email" id="guestEmail" value={guestEmail} onChange={(e) => setGuestEmail(e.target.value)} />
+                </div>
+                <div className="field">
+                  <label htmlFor="guestPhone">Phone</label>
+                  <input type="tel" id="guestPhone" value={guestPhone} onChange={(e) => setGuestPhone(e.target.value)} />
+                </div>
+              </div>
+
+              <div className="field">
+                <label>Guest List (for endorsement)</label>
+                {guestList.map((g, i) => (
+                  <div key={i} style={{ display: "flex", gap: "0.5rem", marginBottom: "0.4rem", alignItems: "center" }}>
+                    <span style={{ fontSize: "0.75rem", color: "var(--text-3)", width: "1.2rem", textAlign: "right" }}>{i + 1}.</span>
+                    <input
+                      type="text"
+                      value={g}
+                      onChange={(e) => {
+                        const next = [...guestList];
+                        next[i] = e.target.value;
+                        setGuestList(next);
+                      }}
+                      placeholder={`Guest ${i + 1}`}
+                      style={{ flex: 1 }}
+                    />
+                    {guestList.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setGuestList(guestList.filter((_, j) => j !== i))}
+                        style={{ background: "none", border: "none", color: "var(--text-3)", cursor: "pointer", fontSize: "1rem", padding: "0 0.25rem" }}
+                      >
+                        &times;
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setGuestList([...guestList, ""])}
+                  style={{ background: "none", border: "1px dashed var(--line)", borderRadius: "6px", color: "var(--accent)", cursor: "pointer", fontSize: "0.8rem", padding: "0.35rem 0.75rem", marginTop: "0.25rem" }}
+                >
+                  + Add guest
+                </button>
+              </div>
+
+              <div className="field">
+                <label htmlFor="notes">Notes</label>
+                <textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} />
+              </div>
+            </div>
+          </div>
+
+          <button
+            className="btn"
+            style={{ width: "100%", marginTop: "1rem" }}
+            disabled={saving || !guestName.trim()}
+            onClick={handleSave}
+          >
+            {saving ? "Saving..." : "Save Changes"}
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}

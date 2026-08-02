@@ -47,6 +47,7 @@ function BookPageInner() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [requests, setRequests] = useState("");
+  const [guestList, setGuestList] = useState<string[]>([""]);
 
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [proofPreview, setProofPreview] = useState("");
@@ -123,11 +124,12 @@ function BookPageInner() {
           guestPhone: phone || undefined,
           checkIn,
           checkOut,
-          guests,
+          guests: guestList.filter((g) => g.trim()).length || guests,
           source: "direct",
           grossAmount: selectedPrice.total,
           notes: requests || undefined,
           proofPath: proofPath || undefined,
+          guestList: guestList.filter((g) => g.trim()),
         }),
       });
 
@@ -273,6 +275,45 @@ function BookPageInner() {
                     </div>
                   </div>
                   <div className="field">
+                    <label>Guest list (for condo endorsement) *</label>
+                    <p style={{ fontSize: "0.75rem", color: "var(--text-3)", margin: "0 0 0.5rem" }}>
+                      List all guests who will be staying, including yourself. Required for building entry.
+                    </p>
+                    {guestList.map((g, i) => (
+                      <div key={i} style={{ display: "flex", gap: "0.5rem", marginBottom: "0.4rem", alignItems: "center" }}>
+                        <span style={{ fontSize: "0.75rem", color: "var(--text-3)", width: "1.2rem", textAlign: "right" }}>{i + 1}.</span>
+                        <input
+                          type="text"
+                          value={g}
+                          onChange={(e) => {
+                            const next = [...guestList];
+                            next[i] = e.target.value;
+                            setGuestList(next);
+                          }}
+                          placeholder={i === 0 ? "Your full name" : `Guest ${i + 1} full name`}
+                          style={{ flex: 1 }}
+                        />
+                        {guestList.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => setGuestList(guestList.filter((_, j) => j !== i))}
+                            style={{ background: "none", border: "none", color: "var(--text-3)", cursor: "pointer", fontSize: "1rem", padding: "0 0.25rem" }}
+                            title="Remove"
+                          >
+                            &times;
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => setGuestList([...guestList, ""])}
+                      style={{ background: "none", border: "1px dashed var(--line)", borderRadius: "6px", color: "var(--accent)", cursor: "pointer", fontSize: "0.8rem", padding: "0.35rem 0.75rem", marginTop: "0.25rem" }}
+                    >
+                      + Add guest
+                    </button>
+                  </div>
+                  <div className="field">
                     <label htmlFor="requests">Special requests</label>
                     <textarea id="requests" value={requests} onChange={(e) => setRequests(e.target.value)} rows={3} placeholder="Arrival time, extra pillows, etc." />
                   </div>
@@ -288,7 +329,7 @@ function BookPageInner() {
                     <div className="summary-row"><span>Check-in</span><span className="mono">{checkIn}</span></div>
                     <div className="summary-row"><span>Check-out</span><span className="mono">{checkOut}</span></div>
                     <div className="summary-row"><span>Nights</span><span className="mono">{nights}</span></div>
-                    <div className="summary-row"><span>Guests</span><span className="mono">{guests}</span></div>
+                    <div className="summary-row"><span>Pax</span><span className="mono">{guestList.filter((g) => g.trim()).length || guests}</span></div>
                     <div className="sep" />
                     {selectedPrice.nights.map((n) => (
                       <div className="summary-row sm" key={n.date}>
@@ -302,7 +343,7 @@ function BookPageInner() {
                 </div>
                 <div style={{ display: "flex", gap: "0.75rem" }}>
                   <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => setStep("select")}>Back</button>
-                  <button className="btn" style={{ flex: 2 }} disabled={!name.trim() || !email.trim()} onClick={() => setStep("payment")}>
+                  <button className="btn" style={{ flex: 2 }} disabled={!name.trim() || !email.trim() || !guestList.some((g) => g.trim())} onClick={() => setStep("payment")}>
                     Proceed to payment
                   </button>
                 </div>

@@ -1,7 +1,11 @@
 import nodemailer from "nodemailer";
 
-const gmailUser = process.env.GMAIL_USER || "";
-const gmailAppPassword = process.env.GMAIL_APP_PASSWORD || "";
+function clean(s: string): string {
+  return s.replace(/[﻿​‌‍ \r\n]/g, "").trim();
+}
+
+const gmailUser = clean(process.env.GMAIL_USER || "");
+const gmailAppPassword = clean(process.env.GMAIL_APP_PASSWORD || "");
 
 function getTransporter() {
   if (!gmailUser || !gmailAppPassword) return null;
@@ -103,6 +107,93 @@ export function bookingConfirmationHtml(data: {
           <p style="color:#555;font-size:13px;line-height:1.6;margin:0">
             <strong>Next step:</strong> Please send the reservation fee to confirm your booking.
             Payment details and instructions will be provided separately.
+          </p>
+        </div>
+
+        <p style="color:#888;font-size:12px;line-height:1.6;margin:24px 0 0">
+          If you have questions, reply to this email or message us on Facebook.
+        </p>
+      </div>
+
+      <div style="background:#f8f6f2;padding:16px 32px;text-align:center">
+        <p style="color:#aaa;font-size:11px;margin:0">
+          Serin West &amp; Serin East, Tagaytay City, Cavite, Philippines
+        </p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+export function bookingReceivedHtml(data: {
+  guestName: string;
+  unitLabel: string;
+  checkIn: string;
+  checkOut: string;
+  nights: number;
+  guests: number;
+  totalAmount: string;
+  bookingId: string;
+}): string {
+  return `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#f5f3ef;font-family:system-ui,-apple-system,sans-serif">
+  <div style="max-width:560px;margin:0 auto;padding:32px 16px">
+    <div style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.08)">
+      <div style="background:#2F5A1E;padding:24px 32px;text-align:center">
+        <h1 style="color:#C89F45;font-size:22px;margin:0;font-weight:400;letter-spacing:1px">
+          SERIN TAGAYTAY
+        </h1>
+        <p style="color:rgba(255,255,255,0.7);font-size:12px;margin:4px 0 0;letter-spacing:2px">
+          STAYCATION
+        </p>
+      </div>
+
+      <div style="padding:32px">
+        <h2 style="color:#2F5A1E;font-size:18px;margin:0 0 8px">
+          Booking Received
+        </h2>
+        <p style="color:#555;font-size:14px;line-height:1.6;margin:0 0 24px">
+          Hi ${data.guestName}, we received your booking request and payment proof. We will review and confirm your reservation shortly.
+        </p>
+
+        <table style="width:100%;border-collapse:collapse;font-size:14px">
+          <tr>
+            <td style="padding:10px 0;border-bottom:1px solid #eee;color:#888;width:120px">Reference</td>
+            <td style="padding:10px 0;border-bottom:1px solid #eee;font-weight:600">${data.bookingId.slice(0, 8).toUpperCase()}</td>
+          </tr>
+          <tr>
+            <td style="padding:10px 0;border-bottom:1px solid #eee;color:#888">Unit</td>
+            <td style="padding:10px 0;border-bottom:1px solid #eee;font-weight:600">${data.unitLabel}</td>
+          </tr>
+          <tr>
+            <td style="padding:10px 0;border-bottom:1px solid #eee;color:#888">Check-in</td>
+            <td style="padding:10px 0;border-bottom:1px solid #eee;font-weight:600">${data.checkIn}</td>
+          </tr>
+          <tr>
+            <td style="padding:10px 0;border-bottom:1px solid #eee;color:#888">Check-out</td>
+            <td style="padding:10px 0;border-bottom:1px solid #eee;font-weight:600">${data.checkOut}</td>
+          </tr>
+          <tr>
+            <td style="padding:10px 0;border-bottom:1px solid #eee;color:#888">Nights</td>
+            <td style="padding:10px 0;border-bottom:1px solid #eee;font-weight:600">${data.nights}</td>
+          </tr>
+          <tr>
+            <td style="padding:10px 0;border-bottom:1px solid #eee;color:#888">Guests</td>
+            <td style="padding:10px 0;border-bottom:1px solid #eee;font-weight:600">${data.guests}</td>
+          </tr>
+          <tr>
+            <td style="padding:10px 0;color:#888">Total</td>
+            <td style="padding:10px 0;font-weight:700;color:#2F5A1E;font-size:16px">${data.totalAmount}</td>
+          </tr>
+        </table>
+
+        <div style="margin:24px 0;padding:16px;background:#f8f6f2;border-radius:8px;border-left:3px solid #C89F45">
+          <p style="color:#555;font-size:13px;line-height:1.6;margin:0">
+            We are reviewing your payment. You will receive a <strong>confirmation email</strong> once your booking is approved.
           </p>
         </div>
 
