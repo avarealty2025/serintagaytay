@@ -14,7 +14,7 @@ export const metadata: Metadata = {
     description: "Cool air, and the whole caldera below you. Book direct for the best rates.",
     siteName: "Serin Tagaytay Staycation",
     type: "website",
-    url: "https://serintagaytaystaycation.com",
+    url: "https://tagaytaystaycation.com",
   },
 };
 
