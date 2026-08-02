@@ -49,6 +49,15 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const serviceKey = clean(process.env.SUPABASE_SERVICE_ROLE_KEY ?? "");
+  if (serviceKey) {
+    try {
+      const { createClient: cc } = await import("@supabase/supabase-js");
+      const admin = cc(url, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } });
+      await admin.from("users").update({ last_login: new Date().toISOString() }).eq("id", data.user.id);
+    } catch { /* best effort */ }
+  }
+
   const res = NextResponse.json({ ok: true });
   res.cookies.set("serin_admin", data.user.id, {
     httpOnly: true,
