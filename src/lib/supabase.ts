@@ -1,8 +1,12 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
-const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
-const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
+function clean(s: string): string {
+  return s.replace(/[﻿​‌‍ \r\n]/g, "").trim();
+}
+
+const url = clean(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "");
+const anonKey = clean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "");
+const serviceKey = clean(process.env.SUPABASE_SERVICE_ROLE_KEY ?? "");
 
 export const isSupabaseConfigured = Boolean(url && anonKey);
 

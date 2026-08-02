@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
+function clean(s: string): string {
+  return s.replace(/[﻿​‌‍ \r\n]/g, "").trim();
+}
+
 export async function POST(req: NextRequest) {
   const { email, password } = await req.json();
 
@@ -8,14 +12,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Email and password required" }, { status: 400 });
   }
 
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
+  const url = clean(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "");
+  const anonKey = clean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "");
 
   if (!url || !anonKey) {
     const expected = process.env.ADMIN_PASSWORD;
     if (!expected) {
       return NextResponse.json(
-        { error: "Auth not configured", debug: { hasUrl: !!url, hasAnon: !!anonKey, hasAdmin: !!expected } },
+        { error: "Auth not configured" },
         { status: 500 },
       );
     }
@@ -40,10 +44,7 @@ export async function POST(req: NextRequest) {
 
   if (error || !data.user) {
     return NextResponse.json(
-      {
-        error: error?.message ?? "Invalid email or password",
-        debug: { supabaseUrl: url.slice(0, 30), status: error?.status },
-      },
+      { error: error?.message ?? "Invalid email or password" },
       { status: 401 },
     );
   }

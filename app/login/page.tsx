@@ -26,8 +26,7 @@ export default function LoginPage() {
         window.location.href = "/admin";
       } else {
         const data = await res.json();
-        const debugInfo = data.debug ? ` [${JSON.stringify(data.debug)}]` : "";
-        setError((data.error || "Invalid email or password") + debugInfo);
+        setError(data.error || "Invalid email or password");
       }
     } catch {
       setError("Connection error");
