@@ -3,7 +3,7 @@ import { getBookings, createBooking, logAudit } from "../../../src/data/db.ts";
 import { UNITS } from "../../../src/data/units.ts";
 import { nightsBetween } from "../../../src/lib/dates.ts";
 import { formatPHP } from "../../../src/lib/pricing.ts";
-import { sendEmail, bookingConfirmationHtml, bookingRequestHtml } from "../../../src/lib/email.ts";
+import { sendEmail, bookingRequestHtml } from "../../../src/lib/email.ts";
 
 export async function GET() {
   const { bookings, problems } = await getBookings();
@@ -39,32 +39,22 @@ export async function POST(req: NextRequest) {
     : unitId;
   const totalAmount = grossAmount ? formatPHP(Number(grossAmount)) : "TBD";
 
-  const emailData = {
-    guestName,
-    guestEmail: guestEmail || "",
-    guestPhone,
-    unitLabel,
-    checkIn,
-    checkOut,
-    nights,
-    guests: Number(guests) || 2,
-    totalAmount,
-    bookingId: result.id!,
-  };
-
-  if (guestEmail) {
-    sendEmail({
-      to: guestEmail,
-      subject: `Booking Confirmed — ${unitLabel} (${checkIn} to ${checkOut})`,
-      html: bookingConfirmationHtml(emailData),
-    }).catch(() => {});
-  }
-
   const adminEmail = process.env.ADMIN_EMAIL || "avarealty2025@gmail.com";
   sendEmail({
     to: adminEmail,
-    subject: `New Booking: ${guestName} — ${unitLabel} (${checkIn})`,
-    html: bookingRequestHtml(emailData),
+    subject: `New Booking Request: ${guestName} — ${unitLabel} (${checkIn})`,
+    html: bookingRequestHtml({
+      guestName,
+      guestEmail: guestEmail || "",
+      guestPhone,
+      unitLabel,
+      checkIn,
+      checkOut,
+      nights,
+      guests: Number(guests) || 2,
+      totalAmount,
+      bookingId: result.id!,
+    }),
   }).catch(() => {});
 
   return NextResponse.json({ id: result.id });

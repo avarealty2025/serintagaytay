@@ -22,7 +22,7 @@ const TYPE_LABEL: Record<string, string> = {
   "2br": "2 Bedrooms",
 };
 
-type Step = "select" | "details" | "confirm";
+type Step = "select" | "details" | "submitted";
 
 import { Suspense } from "react";
 
@@ -48,6 +48,9 @@ function BookPageInner() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [requests, setRequests] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [bookingRef, setBookingRef] = useState("");
+  const [submitError, setSubmitError] = useState("");
 
   const selectedUnit = active.find((u) => u.id === unitId);
 
@@ -82,6 +85,44 @@ function BookPageInner() {
     }
   }
 
+  async function handleSubmitBooking() {
+    if (!selectedUnit || !selectedPrice) return;
+    setSubmitting(true);
+    setSubmitError("");
+
+    try {
+      const res = await fetch("/api/bookings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          unitId: selectedUnit.id,
+          guestName: name,
+          guestEmail: email,
+          guestPhone: phone || undefined,
+          checkIn,
+          checkOut,
+          guests,
+          source: "direct",
+          grossAmount: selectedPrice.total,
+          notes: requests || undefined,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        setSubmitError(data.error || "Failed to submit booking. Please try again.");
+        return;
+      }
+
+      setBookingRef(data.id?.slice(0, 8).toUpperCase() || `SR-${Date.now().toString(36).toUpperCase()}`);
+      setStep("submitted");
+    } catch {
+      setSubmitError("Connection error. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   return (
     <>
       <header className="pub-head">
@@ -108,14 +149,14 @@ function BookPageInner() {
             <span className="step-l">Select unit</span>
           </div>
           <div className="step-line" />
-          <div className={`step-dot ${step === "details" ? "active" : step === "confirm" ? "done" : ""}`}>
+          <div className={`step-dot ${step === "details" ? "active" : step === "submitted" ? "done" : ""}`}>
             <span className="step-n">2</span>
             <span className="step-l">Your details</span>
           </div>
           <div className="step-line" />
-          <div className={`step-dot ${step === "confirm" ? "active" : ""}`}>
+          <div className={`step-dot ${step === "submitted" ? "active" : ""}`}>
             <span className="step-n">3</span>
-            <span className="step-l">Confirmation</span>
+            <span className="step-l">Payment</span>
           </div>
         </div>
 
@@ -330,6 +371,12 @@ function BookPageInner() {
                   </div>
                 </div>
 
+                {submitError && (
+                  <p style={{ color: "var(--crit)", fontSize: "0.82rem", margin: "0.5rem 0" }}>
+                    {submitError}
+                  </p>
+                )}
+
                 <div style={{ display: "flex", gap: "0.75rem" }}>
                   <button
                     className="btn btn-outline"
@@ -341,10 +388,10 @@ function BookPageInner() {
                   <button
                     className="btn"
                     style={{ flex: 2 }}
-                    disabled={!name.trim() || !email.trim()}
-                    onClick={() => setStep("confirm")}
+                    disabled={!name.trim() || !email.trim() || submitting}
+                    onClick={handleSubmitBooking}
                   >
-                    Confirm booking
+                    {submitting ? "Submitting..." : "Submit booking request"}
                   </button>
                 </div>
               </div>
@@ -352,17 +399,16 @@ function BookPageInner() {
           </>
         )}
 
-        {step === "confirm" && selectedUnit && selectedPrice && (
-          <ConfirmStep
+        {step === "submitted" && selectedUnit && selectedPrice && (
+          <SubmittedStep
             unit={selectedUnit}
             price={selectedPrice}
-            name={name}
-            email={email}
-            phone={phone}
+            guestName={name}
             checkIn={checkIn}
             checkOut={checkOut}
             nights={nights}
             guests={guests}
+            bookingRef={bookingRef}
           />
         )}
       </div>
@@ -372,78 +418,31 @@ function BookPageInner() {
   );
 }
 
-function ConfirmStep({
+function SubmittedStep({
   unit,
   price,
-  name: guestName,
-  email,
-  phone,
+  guestName,
   checkIn,
   checkOut,
   nights,
   guests,
+  bookingRef,
 }: {
   unit: (typeof UNITS)[number];
   price: PriceBreakdown;
-  name: string;
-  email: string;
-  phone: string;
+  guestName: string;
   checkIn: string;
   checkOut: string;
   nights: number;
   guests: number;
+  bookingRef: string;
 }) {
   const settings = getSettings();
-  const ref = useRef(`SR-${Date.now().toString(36).toUpperCase()}`).current;
-  const [emailStatus, setEmailStatus] = useState<"sending" | "sent" | "failed" | "not_configured">("sending");
-  const sentRef = useRef(false);
-
-  useEffect(() => {
-    if (sentRef.current) return;
-    sentRef.current = true;
-    fetch("/api/confirm", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        guestName,
-        email,
-        unitId: unit.id,
-        checkIn,
-        checkOut,
-        nights,
-        guests,
-        total: price.total,
-        ref,
-      }),
-    })
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.ok) setEmailStatus("sent");
-        else if (d.html_preview) setEmailStatus("not_configured");
-        else setEmailStatus("failed");
-      })
-      .catch(() => setEmailStatus("failed"));
-  }, []);
-
-  const receiptParams = new URLSearchParams({
-    unit: unit.id,
-    name: guestName,
-    email,
-    phone,
-    checkIn,
-    checkOut,
-    guests: String(guests),
-    total: String(price.total),
-    nights: String(nights),
-    ref,
-  });
 
   return (
     <div style={{ maxWidth: "600px", margin: "0 auto", padding: "2rem 0 4rem" }}>
       <div style={{ textAlign: "center", marginBottom: "2rem" }}>
-        <div style={{ fontSize: "4rem", color: "var(--good)", lineHeight: 1 }}>
-          &#10003;
-        </div>
+        <div style={{ fontSize: "3rem", lineHeight: 1 }}>&#128228;</div>
         <h2
           style={{
             margin: "0.75rem 0 0.5rem",
@@ -452,10 +451,10 @@ function ConfirmStep({
             fontSize: "1.8rem",
           }}
         >
-          Booking request received
+          Booking request submitted
         </h2>
         <p style={{ color: "var(--text-2)" }}>
-          Thank you, {guestName}! Your reservation is being processed.
+          Thank you, {guestName}! To confirm your reservation, please send your payment using the details below.
         </p>
         <p
           style={{
@@ -464,27 +463,12 @@ function ConfirmStep({
             color: "var(--text-3)",
           }}
         >
-          Reference: {ref}
+          Reference: {bookingRef}
         </p>
-        {emailStatus === "sent" && (
-          <p style={{ fontSize: "0.78rem", color: "var(--good)" }}>
-            Confirmation email sent to {email}
-          </p>
-        )}
-        {emailStatus === "sending" && (
-          <p style={{ fontSize: "0.78rem", color: "var(--text-3)" }}>
-            Sending confirmation email...
-          </p>
-        )}
-        {emailStatus === "not_configured" && (
-          <p style={{ fontSize: "0.78rem", color: "var(--warn)" }}>
-            Email confirmation will be available once configured by admin
-          </p>
-        )}
       </div>
 
       <div className="panel price-summary">
-        <h2>Reservation Details</h2>
+        <h2>Reservation Summary</h2>
         <div className="form-body">
           <div className="summary-row">
             <span>Unit</span>
@@ -521,14 +505,14 @@ function ConfirmStep({
 
       <div className="panel" style={{ marginTop: "1rem" }}>
         <h2>
-          Payment Instructions{" "}
-          <span className="hint">to confirm your booking</span>
+          Payment Channels{" "}
+          <span className="hint">send payment to confirm your booking</span>
         </h2>
         <div className="form-body">
           <p style={{ fontSize: "0.85rem", color: "var(--text-2)" }}>
-            To confirm your reservation, please send your payment within{" "}
-            {settings.booking.holdDurationHours} hours. Your booking will be
-            held until payment is received.
+            Please send the <strong>reservation fee</strong> within{" "}
+            {settings.booking.holdDurationHours} hours to secure your booking.
+            Include your booking reference <strong>{bookingRef}</strong> in the payment note.
           </p>
 
           {settings.payment.gcashName ? (
@@ -543,9 +527,7 @@ function ConfirmStep({
           ) : (
             <div className="pay-method">
               <h4>GCash</h4>
-              <p
-                style={{ fontSize: "0.82rem", color: "var(--text-3)", margin: 0 }}
-              >
+              <p style={{ fontSize: "0.82rem", color: "var(--text-3)", margin: 0 }}>
                 To be configured by admin
               </p>
             </div>
@@ -565,9 +547,7 @@ function ConfirmStep({
           ) : (
             <div className="pay-method">
               <h4>Bank Transfer</h4>
-              <p
-                style={{ fontSize: "0.82rem", color: "var(--text-3)", margin: 0 }}
-              >
+              <p style={{ fontSize: "0.82rem", color: "var(--text-3)", margin: 0 }}>
                 To be configured by admin
               </p>
             </div>
@@ -578,6 +558,13 @@ function ConfirmStep({
               {settings.payment.instructions}
             </p>
           )}
+
+          <div style={{ marginTop: "1rem", padding: "12px 16px", background: "var(--surface-alt, #f8f6f2)", borderRadius: "8px", borderLeft: "3px solid var(--warn)" }}>
+            <p style={{ fontSize: "0.82rem", color: "var(--text-2)", margin: 0 }}>
+              <strong>Important:</strong> Your booking confirmation and receipt will be sent to your email once we verify your payment.
+              Unconfirmed bookings will be released after {settings.booking.holdDurationHours} hours.
+            </p>
+          </div>
         </div>
       </div>
 
@@ -587,16 +574,8 @@ function ConfirmStep({
           gap: "0.75rem",
           justifyContent: "center",
           paddingTop: "1.5rem",
-          flexWrap: "wrap",
         }}
       >
-        <Link
-          href={`/receipt?${receiptParams.toString()}`}
-          className="btn"
-          target="_blank"
-        >
-          View Receipt
-        </Link>
         <Link href="/" className="btn-outline">
           Back to home
         </Link>
