@@ -75,7 +75,7 @@ create table channel_links (
   unit_id            uuid not null references units (id) on delete cascade,
   channel            channel not null,
   ical_import_url    text,
-  ical_export_token  text not null default encode(gen_random_bytes(24), 'hex'),
+  ical_export_token  text not null default encode(extensions.gen_random_bytes(24), 'hex'),
   active             boolean not null default true,
 
   last_synced_at     timestamptz,            -- last SUCCESSFUL sync
