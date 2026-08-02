@@ -5,10 +5,8 @@ export function middleware(req: NextRequest) {
 
   if (!pathname.startsWith("/admin")) return NextResponse.next();
 
-  const hasSession = req.cookies.get("serin_admin")?.value === "1";
+  const hasSession = req.cookies.get("serin_admin")?.value;
   if (hasSession) return NextResponse.next();
-
-  if (!process.env.ADMIN_PASSWORD) return NextResponse.next();
 
   const url = req.nextUrl.clone();
   url.pathname = "/login";
