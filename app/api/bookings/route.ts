@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getBookings, createBooking, logAudit } from "../../../src/data/db.ts";
+import { UNITS } from "../../../src/data/units.ts";
+import { nightsBetween } from "../../../src/lib/dates.ts";
+import { formatPHP } from "../../../src/lib/pricing.ts";
+import { sendEmail, bookingConfirmationHtml, bookingRequestHtml } from "../../../src/lib/email.ts";
 
 export async function GET() {
   const { bookings, problems } = await getBookings();
@@ -26,5 +30,42 @@ export async function POST(req: NextRequest) {
   });
   if (result.error) return NextResponse.json({ error: result.error }, { status: 500 });
   await logAudit({ entity: "bookings", entityId: result.id!, action: "insert", after: body });
+
+  const unit = UNITS.find((u) => u.id === unitId);
+  let nights = 0;
+  try { nights = nightsBetween(checkIn, checkOut); } catch { /* skip */ }
+  const unitLabel = unit
+    ? `${unit.tower}-${unit.code} ${unit.buildingId === "west" ? "Serin West" : "Serin East"}`
+    : unitId;
+  const totalAmount = grossAmount ? formatPHP(Number(grossAmount)) : "TBD";
+
+  const emailData = {
+    guestName,
+    guestEmail: guestEmail || "",
+    guestPhone,
+    unitLabel,
+    checkIn,
+    checkOut,
+    nights,
+    guests: Number(guests) || 2,
+    totalAmount,
+    bookingId: result.id!,
+  };
+
+  if (guestEmail) {
+    sendEmail({
+      to: guestEmail,
+      subject: `Booking Confirmed — ${unitLabel} (${checkIn} to ${checkOut})`,
+      html: bookingConfirmationHtml(emailData),
+    }).catch(() => {});
+  }
+
+  const adminEmail = process.env.ADMIN_EMAIL || "avarealty2025@gmail.com";
+  sendEmail({
+    to: adminEmail,
+    subject: `New Booking: ${guestName} — ${unitLabel} (${checkIn})`,
+    html: bookingRequestHtml(emailData),
+  }).catch(() => {});
+
   return NextResponse.json({ id: result.id });
 }
