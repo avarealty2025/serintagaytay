@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseAdmin, isSupabaseConfigured } from "../../../../src/lib/supabase.ts";
+import { createClient } from "@supabase/supabase-js";
 
 export async function POST(req: NextRequest) {
   const { email, password } = await req.json();
@@ -8,12 +8,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Email and password required" }, { status: 400 });
   }
 
-  if (isSupabaseConfigured) {
-    const sb = getSupabaseAdmin();
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (url && anonKey) {
+    const sb = createClient(url, anonKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+
     const { data, error } = await sb.auth.signInWithPassword({ email, password });
 
     if (error || !data.user) {
-      return NextResponse.json({ error: "Invalid email or password" }, { status: 401 });
+      return NextResponse.json(
+        { error: "Invalid email or password" },
+        { status: 401 },
+      );
     }
 
     const res = NextResponse.json({ ok: true });
