@@ -9,12 +9,15 @@ export async function POST(req: NextRequest) {
   }
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
 
-  if (!url || !key) {
+  if (!url || !anonKey) {
     const expected = process.env.ADMIN_PASSWORD;
     if (!expected) {
-      return NextResponse.json({ error: "Auth not configured" }, { status: 500 });
+      return NextResponse.json(
+        { error: "Auth not configured", debug: { hasUrl: !!url, hasAnon: !!anonKey, hasAdmin: !!expected } },
+        { status: 500 },
+      );
     }
     if (password !== expected) {
       return NextResponse.json({ error: "Invalid password" }, { status: 401 });
@@ -29,7 +32,7 @@ export async function POST(req: NextRequest) {
     return res;
   }
 
-  const sb = createClient(url, key, {
+  const sb = createClient(url, anonKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
@@ -37,7 +40,10 @@ export async function POST(req: NextRequest) {
 
   if (error || !data.user) {
     return NextResponse.json(
-      { error: error?.message ?? "Invalid email or password" },
+      {
+        error: error?.message ?? "Invalid email or password",
+        debug: { supabaseUrl: url.slice(0, 30), status: error?.status },
+      },
       { status: 401 },
     );
   }
