@@ -3,7 +3,9 @@ import { notFound } from "next/navigation";
 import { Mark, RidgePlate } from "../../mark.tsx";
 import { Footer } from "../../footer.tsx";
 import { UNITS, TAAL_VIEW_CODES } from "../../../src/data/units.ts";
+import { getUnitPhotos } from "../../../src/data/unit-photos.ts";
 import { formatPHP } from "../../../src/lib/pricing.ts";
+import { PhotoGallery } from "./photo-gallery.tsx";
 
 const TYPE_LABEL: Record<string, string> = {
   studio: "Studio",
@@ -23,6 +25,7 @@ export default async function UnitDetailPage({
 
   const taal = TAAL_VIEW_CODES.has(unit.code);
   const building = unit.buildingId === "west" ? "Serin West" : "Serin East";
+  const photos = getUnitPhotos(unit.id);
   const similar = UNITS.filter(
     (u) => u.active && u.type === unit.type && u.id !== unit.id,
   ).slice(0, 3);
@@ -53,12 +56,19 @@ export default async function UnitDetailPage({
         </Link>
 
         <div className="ud-hero">
-          <div className="ud-plate">
-            <RidgePlate taalView={taal} />
-            <span className="nm">
-              {unit.name ?? `${unit.tower}-${unit.code}`}
-            </span>
-          </div>
+          {photos.length > 0 ? (
+            <PhotoGallery
+              photos={photos}
+              unitName={unit.name ?? `Unit ${unit.tower}-${unit.code}`}
+            />
+          ) : (
+            <div className="ud-plate">
+              <RidgePlate taalView={taal} />
+              <span className="nm">
+                {unit.name ?? `${unit.tower}-${unit.code}`}
+              </span>
+            </div>
+          )}
           <div className="ud-info">
             <p className="ud-building">{building}</p>
             <h1 className="ud-title">

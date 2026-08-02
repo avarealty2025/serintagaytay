@@ -3,6 +3,7 @@ import { Mark, RidgePlate } from "./mark.tsx";
 import { Footer } from "./footer.tsx";
 import { Testimonials } from "./testimonials.tsx";
 import { UNITS, TAAL_VIEW_CODES } from "../src/data/units.ts";
+import { getUnitCoverThumb } from "../src/data/unit-photos.ts";
 import { getBookings } from "../src/data/db.ts";
 import { isAvailable } from "../src/lib/availability.ts";
 import { PricingError, formatPHP, quote } from "../src/lib/pricing.ts";
@@ -140,12 +141,18 @@ export default async function Home({
               {[...bookable, ...rest].map(({ unit, price, reason, free }) => {
                 const taal = TAAL_VIEW_CODES.has(unit.code);
                 const label = unit.name ?? `${unit.code} ${unit.buildingId}`;
+                const cover = getUnitCoverThumb(unit.id);
                 return (
                   <article className="card" key={unit.id}>
-                    <div className="plate">
-                      <RidgePlate taalView={taal} />
-                      <span className="nm">{label}</span>
-                    </div>
+                    {cover ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={cover} alt={label} className="card-cover" loading="lazy" />
+                    ) : (
+                      <div className="plate">
+                        <RidgePlate taalView={taal} />
+                        <span className="nm">{label}</span>
+                      </div>
+                    )}
                     <div className="body">
                       <span className="code">
                         {unit.tower}-{unit.code}{" "}
