@@ -3,6 +3,7 @@ import { UNITS } from "../../../src/data/units.ts";
 import { getBookings } from "../../../src/data/db.ts";
 import { nightsBetween, toDateStr } from "../../../src/lib/dates.ts";
 import { formatPHP, quote } from "../../../src/lib/pricing.ts";
+import { ConfirmBtn } from "./_confirm-btn.tsx";
 
 export const dynamic = "force-dynamic";
 
@@ -118,7 +119,7 @@ export default async function BookingsPage({
                 <th>Pax</th>
                 <th>Source</th>
                 <th className="tar">Amount</th>
-                <th>Balance</th>
+                <th>Status</th>
               </tr>
             </thead>
             <tbody>
@@ -157,7 +158,7 @@ export default async function BookingsPage({
                       </span>
                     </td>
                     <td className="tar mono">{amount || "—"}</td>
-                    <td className="balance-note">{b.notes || "—"}</td>
+                    <td><ConfirmBtn bookingId={b.id} status={b.status} /></td>
                   </tr>
                 );
               })}
