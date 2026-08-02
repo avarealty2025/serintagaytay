@@ -65,6 +65,8 @@ export default function UnitEditPage() {
   const [houseRules, setHouseRules] = useState(settings.houseRules.join("\n"));
   const [checkInTime, setCheckInTime] = useState(settings.booking.checkInTime);
   const [checkOutTime, setCheckOutTime] = useState(settings.booking.checkOutTime);
+  const [unitType, setUnitType] = useState<string>(unit?.type ?? "studio");
+  const [unitView, setUnitView] = useState(unit ? (TAAL_VIEW_CODES.has(unit.code) ? "taal" : "ridge") : "ridge");
   const [status, setStatus] = useState<"available" | "occupied" | "maintenance">("available");
   const [saved, setSaved] = useState(false);
 
@@ -161,15 +163,19 @@ export default function UnitEditPage() {
               <div className="field-row">
                 <div className="field">
                   <label>Type</label>
-                  <input type="text" value={TYPE_LABEL[unit.type]} disabled />
+                  <select value={unitType} onChange={(e) => setUnitType(e.target.value)}>
+                    <option value="studio">Studio</option>
+                    <option value="exec_studio">Executive Studio</option>
+                    <option value="1br">1 Bedroom</option>
+                    <option value="2br">2 Bedrooms</option>
+                  </select>
                 </div>
                 <div className="field">
                   <label>View</label>
-                  <input
-                    type="text"
-                    value={taal ? "Taal Caldera View" : "Ridge Side"}
-                    disabled
-                  />
+                  <select value={unitView} onChange={(e) => setUnitView(e.target.value)}>
+                    <option value="taal">Taal Caldera View</option>
+                    <option value="ridge">Ridge Side</option>
+                  </select>
                 </div>
               </div>
               <div className="field-row">
@@ -412,11 +418,11 @@ export default function UnitEditPage() {
               </div>
               <div className="summary-row">
                 <span>Type</span>
-                <span>{TYPE_LABEL[unit.type]}</span>
+                <span>{TYPE_LABEL[unitType] ?? unitType}</span>
               </div>
               <div className="summary-row">
                 <span>View</span>
-                <span>{taal ? "Taal View" : "Ridge Side"}</span>
+                <span>{unitView === "taal" ? "Taal View" : "Ridge Side"}</span>
               </div>
               <div className="sep" />
               <div className="summary-row">

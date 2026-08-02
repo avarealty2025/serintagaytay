@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Mark, RidgePlate } from "./mark.tsx";
 import { Footer } from "./footer.tsx";
+import { Testimonials } from "./testimonials.tsx";
 import { UNITS, TAAL_VIEW_CODES } from "../src/data/units.ts";
 import { getBookings } from "../src/data/db.ts";
 import { isAvailable } from "../src/lib/availability.ts";
@@ -219,6 +220,10 @@ export default async function Home({
             </div>
           </>
         )}
+      </div>
+
+      <div className="wrap">
+        <Testimonials />
       </div>
 
       <Footer />
