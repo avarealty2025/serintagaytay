@@ -1,11 +1,15 @@
-import { Resend } from "resend";
+import nodemailer from "nodemailer";
 
-const resend = process.env.RESEND_API_KEY
-  ? new Resend(process.env.RESEND_API_KEY)
-  : null;
+const gmailUser = process.env.GMAIL_USER || "";
+const gmailAppPassword = process.env.GMAIL_APP_PASSWORD || "";
 
-const FROM =
-  process.env.EMAIL_FROM || "Serin Tagaytay <onboarding@resend.dev>";
+function getTransporter() {
+  if (!gmailUser || !gmailAppPassword) return null;
+  return nodemailer.createTransport({
+    service: "gmail",
+    auth: { user: gmailUser, pass: gmailAppPassword },
+  });
+}
 
 interface SendOpts {
   to: string;
@@ -14,16 +18,16 @@ interface SendOpts {
 }
 
 export async function sendEmail(opts: SendOpts): Promise<{ ok: boolean; error?: string }> {
-  if (!resend) return { ok: false, error: "RESEND_API_KEY not configured" };
+  const transporter = getTransporter();
+  if (!transporter) return { ok: false, error: "Gmail not configured" };
 
   try {
-    const { error } = await resend.emails.send({
-      from: FROM,
+    await transporter.sendMail({
+      from: `"Serin Tagaytay Staycation" <${gmailUser}>`,
       to: opts.to,
       subject: opts.subject,
       html: opts.html,
     });
-    if (error) return { ok: false, error: error.message };
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Send failed" };
