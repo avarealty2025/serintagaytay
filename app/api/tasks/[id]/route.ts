@@ -25,23 +25,25 @@ export async function PUT(
     return NextResponse.json({ error: "Task not found" }, { status: 404 });
   }
 
-  if (body.title !== undefined) tasks[idx].title = body.title;
-  if (body.instructions !== undefined) tasks[idx].instructions = body.instructions;
-  if (body.status !== undefined) tasks[idx].status = body.status;
-  if (body.dueDate !== undefined) tasks[idx].dueDate = body.dueDate;
-  if (body.priority !== undefined) tasks[idx].priority = body.priority;
-  if (body.unitId !== undefined) tasks[idx].unitId = body.unitId;
-  if (body.unitLabel !== undefined) tasks[idx].unitLabel = body.unitLabel;
-  if (body.assignedTo !== undefined) tasks[idx].assignedTo = body.assignedTo;
-  if (body.assignedName !== undefined) tasks[idx].assignedName = body.assignedName;
-  if (body.recurrence !== undefined) tasks[idx].recurrence = body.recurrence;
+  const task = tasks[idx]!;
+  if (body.title !== undefined) task.title = body.title;
+  if (body.instructions !== undefined) task.instructions = body.instructions;
+  if (body.status !== undefined) task.status = body.status;
+  if (body.dueDate !== undefined) task.dueDate = body.dueDate;
+  if (body.priority !== undefined) task.priority = body.priority;
+  if (body.unitId !== undefined) task.unitId = body.unitId;
+  if (body.unitLabel !== undefined) task.unitLabel = body.unitLabel;
+  if (body.assignedTo !== undefined) task.assignedTo = body.assignedTo;
+  if (body.assignedName !== undefined) task.assignedName = body.assignedName;
+  if (body.recurrence !== undefined) task.recurrence = body.recurrence;
+  tasks[idx] = task;
 
   const result = await saveDbSettings("staff_tasks", tasks);
   if (result.error) {
     return NextResponse.json({ error: result.error }, { status: 500 });
   }
 
-  return NextResponse.json({ task: tasks[idx] });
+  return NextResponse.json({ task });
 }
 
 export async function DELETE(

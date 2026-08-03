@@ -1,39 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-interface SiteContent {
-  hero: {
-    tagline: string;
-    headline: string;
-    subheadline: string;
-    primaryCta: string;
-    secondaryCta: string;
-  };
-  whySection: {
-    heading: string;
-    cards: { title: string; description: string; photoId: string }[];
-  };
-  amenities: {
-    heading: string;
-    items: { icon: string; title: string; description: string }[];
-  };
-  attractions: {
-    heading: string;
-    items: {
-      name: string;
-      description: string;
-      distance: string;
-      travelTime: string;
-      photoId: string;
-    }[];
-  };
-  faq: {
-    heading: string;
-    items: { question: string; answer: string }[];
-  };
-  trustStrip: { label: string; value: string }[];
-  featuredUnitIds: string[];
-  galleryPhotoIds: string[];
+import type { SiteContent } from "../../../src/data/site-content.ts";
+
+function updateAt<T>(arr: T[], idx: number, patch: Partial<T>): T[] {
+  return arr.map((item, j) => (j === idx ? { ...item, ...patch } : item));
 }
 
 export default function SiteContentPage() {
@@ -248,14 +219,15 @@ export default function SiteContentPage() {
                   <input
                     type="text"
                     value={card.title}
-                    onChange={(e) => {
-                      const cards = [...content.whySection.cards];
-                      cards[i] = { ...cards[i], title: e.target.value };
+                    onChange={(e) =>
                       setContent({
                         ...content,
-                        whySection: { ...content.whySection, cards },
-                      });
-                    }}
+                        whySection: {
+                          ...content.whySection,
+                          cards: updateAt(content.whySection.cards, i, { title: e.target.value }),
+                        },
+                      })
+                    }
                   />
                 </div>
                 <div className="field">
@@ -263,14 +235,15 @@ export default function SiteContentPage() {
                   <textarea
                     rows={2}
                     value={card.description}
-                    onChange={(e) => {
-                      const cards = [...content.whySection.cards];
-                      cards[i] = { ...cards[i], description: e.target.value };
+                    onChange={(e) =>
                       setContent({
                         ...content,
-                        whySection: { ...content.whySection, cards },
-                      });
-                    }}
+                        whySection: {
+                          ...content.whySection,
+                          cards: updateAt(content.whySection.cards, i, { description: e.target.value }),
+                        },
+                      })
+                    }
                   />
                 </div>
               </div>
@@ -314,14 +287,15 @@ export default function SiteContentPage() {
                   <input
                     type="text"
                     value={item.title}
-                    onChange={(e) => {
-                      const items = [...content.amenities.items];
-                      items[i] = { ...items[i], title: e.target.value };
+                    onChange={(e) =>
                       setContent({
                         ...content,
-                        amenities: { ...content.amenities, items },
-                      });
-                    }}
+                        amenities: {
+                          ...content.amenities,
+                          items: updateAt(content.amenities.items, i, { title: e.target.value }),
+                        },
+                      })
+                    }
                   />
                 </div>
                 <div className="field">
@@ -329,14 +303,15 @@ export default function SiteContentPage() {
                   <input
                     type="text"
                     value={item.description}
-                    onChange={(e) => {
-                      const items = [...content.amenities.items];
-                      items[i] = { ...items[i], description: e.target.value };
+                    onChange={(e) =>
                       setContent({
                         ...content,
-                        amenities: { ...content.amenities, items },
-                      });
-                    }}
+                        amenities: {
+                          ...content.amenities,
+                          items: updateAt(content.amenities.items, i, { description: e.target.value }),
+                        },
+                      })
+                    }
                   />
                 </div>
               </div>
@@ -378,14 +353,15 @@ export default function SiteContentPage() {
                   <input
                     type="text"
                     value={item.name}
-                    onChange={(e) => {
-                      const items = [...content.attractions.items];
-                      items[i] = { ...items[i], name: e.target.value };
+                    onChange={(e) =>
                       setContent({
                         ...content,
-                        attractions: { ...content.attractions, items },
-                      });
-                    }}
+                        attractions: {
+                          ...content.attractions,
+                          items: updateAt(content.attractions.items, i, { name: e.target.value }),
+                        },
+                      })
+                    }
                   />
                 </div>
                 <div className="field">
@@ -393,14 +369,15 @@ export default function SiteContentPage() {
                   <textarea
                     rows={2}
                     value={item.description}
-                    onChange={(e) => {
-                      const items = [...content.attractions.items];
-                      items[i] = { ...items[i], description: e.target.value };
+                    onChange={(e) =>
                       setContent({
                         ...content,
-                        attractions: { ...content.attractions, items },
-                      });
-                    }}
+                        attractions: {
+                          ...content.attractions,
+                          items: updateAt(content.attractions.items, i, { description: e.target.value }),
+                        },
+                      })
+                    }
                   />
                 </div>
                 <div className="field-row">
@@ -409,14 +386,15 @@ export default function SiteContentPage() {
                     <input
                       type="text"
                       value={item.distance}
-                      onChange={(e) => {
-                        const items = [...content.attractions.items];
-                        items[i] = { ...items[i], distance: e.target.value };
+                      onChange={(e) =>
                         setContent({
                           ...content,
-                          attractions: { ...content.attractions, items },
-                        });
-                      }}
+                          attractions: {
+                            ...content.attractions,
+                            items: updateAt(content.attractions.items, i, { distance: e.target.value }),
+                          },
+                        })
+                      }
                     />
                   </div>
                   <div className="field">
@@ -424,14 +402,15 @@ export default function SiteContentPage() {
                     <input
                       type="text"
                       value={item.travelTime}
-                      onChange={(e) => {
-                        const items = [...content.attractions.items];
-                        items[i] = { ...items[i], travelTime: e.target.value };
+                      onChange={(e) =>
                         setContent({
                           ...content,
-                          attractions: { ...content.attractions, items },
-                        });
-                      }}
+                          attractions: {
+                            ...content.attractions,
+                            items: updateAt(content.attractions.items, i, { travelTime: e.target.value }),
+                          },
+                        })
+                      }
                     />
                   </div>
                 </div>
@@ -474,14 +453,15 @@ export default function SiteContentPage() {
                   <input
                     type="text"
                     value={item.question}
-                    onChange={(e) => {
-                      const items = [...content.faq.items];
-                      items[i] = { ...items[i], question: e.target.value };
+                    onChange={(e) =>
                       setContent({
                         ...content,
-                        faq: { ...content.faq, items },
-                      });
-                    }}
+                        faq: {
+                          ...content.faq,
+                          items: updateAt(content.faq.items, i, { question: e.target.value }),
+                        },
+                      })
+                    }
                   />
                 </div>
                 <div className="field">
@@ -489,24 +469,30 @@ export default function SiteContentPage() {
                   <textarea
                     rows={3}
                     value={item.answer}
-                    onChange={(e) => {
-                      const items = [...content.faq.items];
-                      items[i] = { ...items[i], answer: e.target.value };
+                    onChange={(e) =>
                       setContent({
                         ...content,
-                        faq: { ...content.faq, items },
-                      });
-                    }}
+                        faq: {
+                          ...content.faq,
+                          items: updateAt(content.faq.items, i, { answer: e.target.value }),
+                        },
+                      })
+                    }
                   />
                 </div>
                 <button
                   className="btn-outline btn-sm"
                   type="button"
                   style={{ color: "var(--crit)", borderColor: "var(--crit)", marginTop: "0.5rem" }}
-                  onClick={() => {
-                    const items = content.faq.items.filter((_, j) => j !== i);
-                    setContent({ ...content, faq: { ...content.faq, items } });
-                  }}
+                  onClick={() =>
+                    setContent({
+                      ...content,
+                      faq: {
+                        ...content.faq,
+                        items: content.faq.items.filter((_, j) => j !== i),
+                      },
+                    })
+                  }
                 >
                   Remove
                 </button>
@@ -516,18 +502,15 @@ export default function SiteContentPage() {
               className="btn-outline btn-sm"
               type="button"
               style={{ marginTop: "1rem" }}
-              onClick={() => {
+              onClick={() =>
                 setContent({
                   ...content,
                   faq: {
                     ...content.faq,
-                    items: [
-                      ...content.faq.items,
-                      { question: "", answer: "" },
-                    ],
+                    items: [...content.faq.items, { question: "", answer: "" }],
                   },
-                });
-              }}
+                })
+              }
             >
               + Add Question
             </button>
@@ -551,11 +534,12 @@ export default function SiteContentPage() {
                   <input
                     type="text"
                     value={item.value}
-                    onChange={(e) => {
-                      const strip = [...content.trustStrip];
-                      strip[i] = { ...strip[i], value: e.target.value };
-                      setContent({ ...content, trustStrip: strip });
-                    }}
+                    onChange={(e) =>
+                      setContent({
+                        ...content,
+                        trustStrip: updateAt(content.trustStrip, i, { value: e.target.value }),
+                      })
+                    }
                   />
                 </div>
                 <div className="field">
@@ -563,11 +547,12 @@ export default function SiteContentPage() {
                   <input
                     type="text"
                     value={item.label}
-                    onChange={(e) => {
-                      const strip = [...content.trustStrip];
-                      strip[i] = { ...strip[i], label: e.target.value };
-                      setContent({ ...content, trustStrip: strip });
-                    }}
+                    onChange={(e) =>
+                      setContent({
+                        ...content,
+                        trustStrip: updateAt(content.trustStrip, i, { label: e.target.value }),
+                      })
+                    }
                   />
                 </div>
               </div>
@@ -583,7 +568,7 @@ export default function SiteContentPage() {
           <div className="form-body">
             <p style={{ fontSize: "0.85rem", color: "var(--text-2)", margin: "0 0 1rem" }}>
               Enter unit IDs to feature on the homepage (e.g. west-1-210, west-1-906, west-2-201).
-              These appear in the "Handpicked for Your Stay" section.
+              These appear in the &quot;Handpicked for Your Stay&quot; section.
             </p>
             {content.featuredUnitIds.map((id, i) => (
               <div key={i} className="field" style={{ marginBottom: "0.5rem" }}>
@@ -591,8 +576,9 @@ export default function SiteContentPage() {
                   type="text"
                   value={id}
                   onChange={(e) => {
-                    const ids = [...content.featuredUnitIds];
-                    ids[i] = e.target.value;
+                    const ids = content.featuredUnitIds.map((v, j) =>
+                      j === i ? e.target.value : v,
+                    );
                     setContent({ ...content, featuredUnitIds: ids });
                   }}
                   placeholder="e.g. west-1-210"
@@ -603,12 +589,12 @@ export default function SiteContentPage() {
               <button
                 className="btn-outline btn-sm"
                 type="button"
-                onClick={() => {
+                onClick={() =>
                   setContent({
                     ...content,
                     featuredUnitIds: [...content.featuredUnitIds, ""],
-                  });
-                }}
+                  })
+                }
               >
                 + Add Unit
               </button>

@@ -14,8 +14,8 @@ import { getBookings, getDbSettings } from "../src/data/db.ts";
 import { isAvailable } from "../src/lib/availability.ts";
 import { formatPHP, quote, PricingError } from "../src/lib/pricing.ts";
 import { addDays, nightsBetween, toDateStr } from "../src/lib/dates.ts";
-import type { SiteContent } from "./api/site-content/route.ts";
-import { DEFAULT_SITE_CONTENT } from "./api/site-content/route.ts";
+import type { SiteContent } from "../src/data/site-content.ts";
+import { DEFAULT_SITE_CONTENT } from "../src/data/site-content.ts";
 
 export const dynamic = "force-dynamic";
 
