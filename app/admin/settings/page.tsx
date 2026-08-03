@@ -551,78 +551,116 @@ export default function SettingsPage() {
 
           {tab === "payment" && (
             <div className="form-panel">
-              <h2>Payment Settings</h2>
+              <h2>Payment Accounts</h2>
               <div className="form-body">
-                <div className="field">
-                  <label>Accepted Payment Methods (comma-separated)</label>
-                  <input
-                    type="text"
-                    value={s.payment.methods.join(", ")}
-                    onChange={(e) =>
-                      update("payment", {
-                        methods: e.target.value.split(",").map((m) => m.trim()).filter(Boolean),
-                      })
-                    }
-                  />
-                </div>
-                <div className="sep" />
-                <p style={{ fontSize: "0.65rem", letterSpacing: "0.15em", textTransform: "uppercase", color: "var(--text-3)", fontWeight: 700, margin: "0.5rem 0 0.25rem" }}>
-                  GCash
+                <p style={{ fontSize: "0.78rem", color: "var(--text-3)", margin: "0 0 1rem" }}>
+                  These payment options are shown to guests during booking. To add a QR code, upload the image to Google Drive, make it public, and paste the file ID.
                 </p>
-                <div className="field-row">
-                  <div className="field">
-                    <label>Account Name</label>
-                    <input
-                      type="text"
-                      value={s.payment.gcashName}
-                      onChange={(e) => update("payment", { gcashName: e.target.value })}
-                    />
+
+                {(s.payment.accounts ?? []).map((acct, i) => (
+                  <div
+                    key={acct.id}
+                    style={{
+                      padding: "1rem",
+                      background: "var(--surface-2)",
+                      borderRadius: "var(--radius-sm)",
+                      marginBottom: "0.75rem",
+                    }}
+                  >
+                    <div className="field-row">
+                      <div className="field">
+                        <label>Provider</label>
+                        <input
+                          type="text"
+                          value={acct.provider}
+                          onChange={(e) => {
+                            const accounts = (s.payment.accounts ?? []).map((a, j) =>
+                              j === i ? { ...a, provider: e.target.value } : a,
+                            );
+                            update("payment", { accounts });
+                          }}
+                          placeholder="e.g. GCash, BPI, Maya"
+                        />
+                      </div>
+                      <div className="field">
+                        <label>Account Number</label>
+                        <input
+                          type="text"
+                          value={acct.accountNumber}
+                          onChange={(e) => {
+                            const accounts = (s.payment.accounts ?? []).map((a, j) =>
+                              j === i ? { ...a, accountNumber: e.target.value } : a,
+                            );
+                            update("payment", { accounts });
+                          }}
+                        />
+                      </div>
+                    </div>
+                    <div className="field-row">
+                      <div className="field">
+                        <label>Account Name</label>
+                        <input
+                          type="text"
+                          value={acct.accountName}
+                          onChange={(e) => {
+                            const accounts = (s.payment.accounts ?? []).map((a, j) =>
+                              j === i ? { ...a, accountName: e.target.value } : a,
+                            );
+                            update("payment", { accounts });
+                          }}
+                        />
+                      </div>
+                      <div className="field">
+                        <label>QR Code (Google Drive File ID)</label>
+                        <input
+                          type="text"
+                          value={acct.qrPhotoId}
+                          onChange={(e) => {
+                            const accounts = (s.payment.accounts ?? []).map((a, j) =>
+                              j === i ? { ...a, qrPhotoId: e.target.value } : a,
+                            );
+                            update("payment", { accounts });
+                          }}
+                          placeholder="Paste Google Drive file ID"
+                        />
+                      </div>
+                    </div>
+                    {acct.qrPhotoId && (
+                      <img
+                        src={`https://lh3.googleusercontent.com/d/${acct.qrPhotoId}=s200`}
+                        alt={`${acct.provider} QR preview`}
+                        style={{ width: "100px", height: "100px", borderRadius: "6px", marginTop: "0.5rem", border: "1px solid var(--line)" }}
+                      />
+                    )}
+                    <button
+                      className="btn-outline btn-sm"
+                      type="button"
+                      style={{ color: "var(--crit)", borderColor: "var(--crit)", marginTop: "0.5rem" }}
+                      onClick={() => {
+                        const accounts = (s.payment.accounts ?? []).filter((_, j) => j !== i);
+                        update("payment", { accounts });
+                      }}
+                    >
+                      Remove
+                    </button>
                   </div>
-                  <div className="field">
-                    <label>Number</label>
-                    <input
-                      type="text"
-                      value={s.payment.gcashNumber}
-                      onChange={(e) => update("payment", { gcashNumber: e.target.value })}
-                      placeholder="09XX XXX XXXX"
-                    />
-                  </div>
-                </div>
-                <div className="sep" />
-                <p style={{ fontSize: "0.65rem", letterSpacing: "0.15em", textTransform: "uppercase", color: "var(--text-3)", fontWeight: 700, margin: "0.5rem 0 0.25rem" }}>
-                  Bank Transfer
-                </p>
-                <div className="field">
-                  <label>Bank Name</label>
-                  <input
-                    type="text"
-                    value={s.payment.bankName}
-                    onChange={(e) => update("payment", { bankName: e.target.value })}
-                  />
-                </div>
-                <div className="field-row">
-                  <div className="field">
-                    <label>Account Name</label>
-                    <input
-                      type="text"
-                      value={s.payment.bankAccountName}
-                      onChange={(e) =>
-                        update("payment", { bankAccountName: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div className="field">
-                    <label>Account Number</label>
-                    <input
-                      type="text"
-                      value={s.payment.bankAccountNumber}
-                      onChange={(e) =>
-                        update("payment", { bankAccountNumber: e.target.value })
-                      }
-                    />
-                  </div>
-                </div>
-                <div className="sep" />
+                ))}
+
+                <button
+                  className="btn-outline btn-sm"
+                  type="button"
+                  onClick={() => {
+                    const accounts = [
+                      ...(s.payment.accounts ?? []),
+                      { id: `pay-${Date.now()}`, provider: "", accountName: "", accountNumber: "", qrPhotoId: "" },
+                    ];
+                    update("payment", { accounts });
+                  }}
+                >
+                  + Add Payment Account
+                </button>
+
+                <div className="sep" style={{ margin: "1.5rem 0 1rem" }} />
                 <div className="field">
                   <label>Payment Instructions (shown to guests)</label>
                   <textarea

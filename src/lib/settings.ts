@@ -46,6 +46,14 @@ export interface CancellationPolicy {
   noShowFeePct: number;
 }
 
+export interface PaymentAccount {
+  id: string;
+  provider: string;
+  accountName: string;
+  accountNumber: string;
+  qrPhotoId: string;
+}
+
 export interface PaymentSettings {
   methods: string[];
   gcashName: string;
@@ -54,6 +62,7 @@ export interface PaymentSettings {
   bankAccountName: string;
   bankAccountNumber: string;
   instructions: string;
+  accounts: PaymentAccount[];
 }
 
 export interface NotificationTemplate {
@@ -122,14 +131,21 @@ export const DEFAULT_SETTINGS: SystemSettings = {
     noShowFeePct: 100,
   },
   payment: {
-    methods: ["GCash", "Bank Transfer"],
-    gcashName: "",
-    gcashNumber: "",
-    bankName: "",
-    bankAccountName: "",
-    bankAccountNumber: "",
+    methods: ["GCash", "SeaBank", "BPI", "UnionBank", "Maya"],
+    gcashName: "APRIL LYN MAE VALENZUELA",
+    gcashNumber: "09760573160",
+    bankName: "BPI",
+    bankAccountName: "APRIL LYN MAE VALENZUELA",
+    bankAccountNumber: "1769179069",
     instructions:
-      "Please send your payment within the hold period. Include your booking reference in the payment note.",
+      "Please verify the amount before proceeding. Kindly send the proof of payment for proper tagging.",
+    accounts: [
+      { id: "gcash", provider: "GCash", accountName: "APRIL LYN MAE VALENZUELA", accountNumber: "09760573160", qrPhotoId: "" },
+      { id: "seabank", provider: "SeaBank", accountName: "APRIL LYN MAE VALENZUELA", accountNumber: "17946734235", qrPhotoId: "" },
+      { id: "bpi", provider: "BPI", accountName: "APRIL LYN MAE VALENZUELA", accountNumber: "1769179069", qrPhotoId: "" },
+      { id: "unionbank", provider: "UnionBank", accountName: "APRIL LYN MAE VALENZUELA", accountNumber: "8881 7044 1495", qrPhotoId: "" },
+      { id: "maya", provider: "Maya", accountName: "APRIL LYN MAE VALENZUELA", accountNumber: "09760573160", qrPhotoId: "" },
+    ],
   },
   houseRules: [
     "No smoking inside the unit",

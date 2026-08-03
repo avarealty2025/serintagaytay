@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Mark } from "../mark.tsx";
@@ -12,7 +12,7 @@ import {
 } from "../../src/lib/pricing.ts";
 import { nightsBetween, addDays, toDateStr } from "../../src/lib/dates.ts";
 import type { PriceBreakdown } from "../../src/lib/types.ts";
-import { getSettings } from "../../src/lib/settings.ts";
+import { getSettings, type PaymentAccount } from "../../src/lib/settings.ts";
 import { Suspense } from "react";
 
 const TYPE_LABEL: Record<string, string> = {
@@ -37,6 +37,18 @@ function BookPageInner() {
   const today = toDateStr(new Date());
   const active = UNITS.filter((u) => u.active);
   const settings = getSettings();
+  const [paymentAccounts, setPaymentAccounts] = useState<PaymentAccount[]>(settings.payment.accounts ?? []);
+
+  useEffect(() => {
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then((db) => {
+        if (db.system_settings?.payment?.accounts) {
+          setPaymentAccounts(db.system_settings.payment.accounts);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const [step, setStep] = useState<Step>("select");
   const [checkIn, setCheckIn] = useState(sp.get("checkIn") || addDays(today, 1));
@@ -364,35 +376,44 @@ function BookPageInner() {
                   Send <strong>{formatPHP(selectedPrice.total)}</strong> to any of the channels below, then upload a screenshot of your payment.
                 </p>
 
-                {settings.payment.gcashName ? (
-                  <div className="pay-method">
-                    <h4>GCash</h4>
-                    <p className="mono">
-                      Name: <strong>{settings.payment.gcashName}</strong><br />
-                      Number: <strong>{settings.payment.gcashNumber}</strong>
-                    </p>
-                  </div>
+                {paymentAccounts.length > 0 ? (
+                  paymentAccounts.map((acct) => (
+                    <div key={acct.id} className="pay-method" style={{ display: "flex", gap: "1rem", alignItems: "center", justifyContent: "space-between" }}>
+                      <div>
+                        <h4 style={{ margin: "0 0 0.25rem" }}>{acct.provider}</h4>
+                        <p className="mono" style={{ margin: 0 }}>
+                          <strong style={{ fontSize: "1.1rem" }}>{acct.accountNumber}</strong><br />
+                          {acct.accountName}
+                        </p>
+                      </div>
+                      {acct.qrPhotoId && (
+                        <img
+                          src={`https://lh3.googleusercontent.com/d/${acct.qrPhotoId}=s300`}
+                          alt={`${acct.provider} QR`}
+                          style={{ width: "120px", height: "120px", borderRadius: "8px", border: "2px solid var(--line)" }}
+                        />
+                      )}
+                    </div>
+                  ))
                 ) : (
-                  <div className="pay-method">
-                    <h4>GCash</h4>
-                    <p style={{ fontSize: "0.82rem", color: "var(--text-3)", margin: 0 }}>To be configured by admin</p>
-                  </div>
-                )}
-
-                {settings.payment.bankName ? (
-                  <div className="pay-method">
-                    <h4>Bank Transfer</h4>
-                    <p className="mono">
-                      Bank: <strong>{settings.payment.bankName}</strong><br />
-                      Account Name: <strong>{settings.payment.bankAccountName}</strong><br />
-                      Account No.: <strong>{settings.payment.bankAccountNumber}</strong>
-                    </p>
-                  </div>
-                ) : (
-                  <div className="pay-method">
-                    <h4>Bank Transfer</h4>
-                    <p style={{ fontSize: "0.82rem", color: "var(--text-3)", margin: 0 }}>To be configured by admin</p>
-                  </div>
+                  <>
+                    <div className="pay-method">
+                      <h4>GCash</h4>
+                      <p className="mono">
+                        Name: <strong>{settings.payment.gcashName || "To be configured"}</strong><br />
+                        Number: <strong>{settings.payment.gcashNumber || "—"}</strong>
+                      </p>
+                    </div>
+                    {settings.payment.bankName && (
+                      <div className="pay-method">
+                        <h4>{settings.payment.bankName}</h4>
+                        <p className="mono">
+                          Account Name: <strong>{settings.payment.bankAccountName}</strong><br />
+                          Account No.: <strong>{settings.payment.bankAccountNumber}</strong>
+                        </p>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </div>
