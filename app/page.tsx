@@ -88,6 +88,7 @@ export default async function Home({
             <Link href="#amenities">Amenities</Link>
             <Link href="#reviews">Reviews</Link>
             <Link href="/book">Book</Link>
+            <Link href="/admin">Admin</Link>
           </nav>
         </div>
       </header>
