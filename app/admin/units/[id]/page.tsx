@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { UNITS, TAAL_VIEW_CODES } from "../../../../src/data/units.ts";
@@ -66,9 +66,22 @@ export default function UnitEditPage() {
   const [checkInTime, setCheckInTime] = useState(settings.booking.checkInTime);
   const [checkOutTime, setCheckOutTime] = useState(settings.booking.checkOutTime);
   const [unitType, setUnitType] = useState<string>(unit?.type ?? "studio");
-  const [unitView, setUnitView] = useState(unit ? (TAAL_VIEW_CODES.has(unit.code) ? "taal" : "ridge") : "ridge");
+  const [unitView, setUnitView] = useState(unit ? (TAAL_VIEW_CODES.has(unit.code) ? "Taal Caldera View" : "Ridge Side") : "");
   const [status, setStatus] = useState<"available" | "occupied" | "maintenance">("available");
+  const [icalUrl, setIcalUrl] = useState("");
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/units/ical-urls")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.urls && data.urls[unitId]) {
+          setIcalUrl(data.urls[unitId]);
+        }
+      })
+      .catch(() => {});
+  }, [unitId]);
 
   if (!unit) {
     return (
@@ -85,9 +98,21 @@ export default function UnitEditPage() {
 
   const taal = TAAL_VIEW_CODES.has(unit.code);
 
-  function handleSave() {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+  async function handleSave() {
+    setSaving(true);
+    try {
+      await fetch("/api/units/ical-urls", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ unitId, icalUrl }),
+      });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch {
+      alert("Failed to save. Please try again.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   function toggleAmenity(a: string) {
@@ -111,17 +136,35 @@ export default function UnitEditPage() {
         </div>
         <div style={{ display: "flex", gap: "0.5rem" }}>
           <Link
+            href={`/admin/units/${unit.id}/calendar`}
+            className="btn-outline btn-sm"
+          >
+            Calendar
+          </Link>
+          <Link
             href={`/admin/units/${unit.id}/photos`}
             className="btn-outline btn-sm"
           >
             Photos
           </Link>
+          <button
+            className="btn-outline btn-sm"
+            type="button"
+            style={{ color: "var(--crit)", borderColor: "var(--crit)" }}
+            onClick={() => {
+              if (confirm(`Delete unit ${unit.tower}-${unit.code}? This will deactivate the unit and remove it from the public listing.`)) {
+                alert("Unit deactivated. Changes will persist once the database is connected.");
+              }
+            }}
+          >
+            Delete Unit
+          </button>
         </div>
       </div>
 
       {saved && (
         <div className="notice" style={{ borderLeftColor: "var(--good)", background: "color-mix(in srgb, var(--good) 12%, transparent)" }}>
-          <strong>Saved.</strong> Changes will persist once the database is connected.
+          <strong>Saved.</strong> iCal URL updated successfully.
         </div>
       )}
 
@@ -172,10 +215,12 @@ export default function UnitEditPage() {
                 </div>
                 <div className="field">
                   <label>View</label>
-                  <select value={unitView} onChange={(e) => setUnitView(e.target.value)}>
-                    <option value="taal">Taal Caldera View</option>
-                    <option value="ridge">Ridge Side</option>
-                  </select>
+                  <input
+                    type="text"
+                    value={unitView}
+                    onChange={(e) => setUnitView(e.target.value)}
+                    placeholder="e.g. Taal Caldera View, Ridge Side..."
+                  />
                 </div>
               </div>
               <div className="field-row">
@@ -198,6 +243,18 @@ export default function UnitEditPage() {
                     disabled
                   />
                 </div>
+              </div>
+              <div className="field">
+                <label>iCal Calendar URL</label>
+                <input
+                  type="url"
+                  value={icalUrl}
+                  onChange={(e) => setIcalUrl(e.target.value)}
+                  placeholder="https://www.airbnb.com/calendar/ical/..."
+                />
+                <p style={{ margin: "0.25rem 0 0", fontSize: "0.72rem", color: "var(--text-3)" }}>
+                  Paste the iCal URL from Airbnb, Agoda, or other platforms to sync bookings
+                </p>
               </div>
             </div>
           </div>
@@ -422,7 +479,7 @@ export default function UnitEditPage() {
               </div>
               <div className="summary-row">
                 <span>View</span>
-                <span>{unitView === "taal" ? "Taal View" : "Ridge Side"}</span>
+                <span>{unitView || "—"}</span>
               </div>
               <div className="sep" />
               <div className="summary-row">
@@ -483,19 +540,10 @@ export default function UnitEditPage() {
                 style={{ marginTop: "0.75rem", width: "100%" }}
                 onClick={handleSave}
                 type="button"
+                disabled={saving}
               >
-                Save Changes
+                {saving ? "Saving..." : "Save Changes"}
               </button>
-              <p
-                style={{
-                  margin: "0.5rem 0 0",
-                  fontSize: "0.72rem",
-                  color: "var(--text-3)",
-                  textAlign: "center",
-                }}
-              >
-                Changes will persist once Supabase is connected
-              </p>
             </div>
           </div>
         </div>

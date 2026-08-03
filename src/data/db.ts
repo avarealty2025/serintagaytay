@@ -427,6 +427,14 @@ export async function updateExpense(
   return { error: null };
 }
 
+export async function deleteBooking(id: string): Promise<{ error: string | null }> {
+  if (!isSupabaseConfigured) return { error: null };
+  const sb = getSupabaseAdmin();
+  const { error } = await sb.from("bookings").update({ deleted_at: new Date().toISOString() }).eq("id", id);
+  if (error) return { error: error.message };
+  return { error: null };
+}
+
 export async function deleteExpense(id: string): Promise<{ error: string | null }> {
   if (!isSupabaseConfigured) return { error: null };
   const sb = getSupabaseAdmin();

@@ -29,7 +29,8 @@ export function Testimonials() {
 
   return (
     <section className="testimonials">
-      <h2>What our guests say</h2>
+      <span className="section-label">Guest Reviews</span>
+      <h2>What Our Guests Say</h2>
       <p>Real reviews from guests who stayed at Serin Tagaytay.</p>
       <div className="testimonial-grid">
         {reviews.map((r) => (

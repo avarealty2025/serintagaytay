@@ -1,6 +1,8 @@
 import { UNITS } from "../../../src/data/units.ts";
 import { getBookings } from "../../../src/data/db.ts";
 import { toDateStr, addDays } from "../../../src/lib/dates.ts";
+import { TaskForm } from "./_task-form.tsx";
+import { CustomTasks } from "./_custom-tasks.tsx";
 
 export const dynamic = "force-dynamic";
 
@@ -97,6 +99,7 @@ export default async function TasksPage() {
     <>
       <div className="page-head">
         <h1 className="today">Tasks</h1>
+        <TaskForm />
       </div>
 
       <div className="tiles">
@@ -121,6 +124,8 @@ export default async function TasksPage() {
           <p className="s">arrivals</p>
         </div>
       </div>
+
+      <CustomTasks />
 
       {todayTasks.length > 0 && (
         <div className="panel">
@@ -177,16 +182,10 @@ export default async function TasksPage() {
       {tasks.length === 0 && (
         <div className="panel" style={{ padding: "2rem", textAlign: "center" }}>
           <p style={{ color: "var(--text-2)" }}>
-            No tasks today or tomorrow. Tasks are auto-generated from bookings.
+            No auto-generated tasks today or tomorrow. Click &ldquo;+ New Task&rdquo; above to add custom tasks with instructions for staff.
           </p>
         </div>
       )}
-
-      <p className="notice" style={{ marginTop: "1.5rem" }}>
-        <strong>Auto-generated.</strong> Tasks are derived from today&rsquo;s and
-        tomorrow&rsquo;s arrivals and departures. Once Supabase is connected,
-        staff can update task status and upload photo proof of completed work.
-      </p>
     </>
   );
 }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { updateBooking, logAudit } from "../../../../src/data/db.ts";
+import { updateBooking, deleteBooking, logAudit } from "../../../../src/data/db.ts";
 import { isSupabaseConfigured, getSupabaseAdmin } from "../../../../src/lib/supabase.ts";
 
 export async function GET(
@@ -62,6 +62,31 @@ export async function PUT(
     entityId: id,
     action: "update",
     after: body,
+    actor: "admin",
+  });
+
+  return NextResponse.json({ ok: true });
+}
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const session = req.cookies.get("serin_admin")?.value;
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { id } = await params;
+  const result = await deleteBooking(id);
+  if (result.error) {
+    return NextResponse.json({ error: result.error }, { status: 500 });
+  }
+
+  await logAudit({
+    entity: "bookings",
+    entityId: id,
+    action: "delete",
     actor: "admin",
   });
 

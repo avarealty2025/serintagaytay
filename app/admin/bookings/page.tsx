@@ -4,6 +4,7 @@ import { getBookings } from "../../../src/data/db.ts";
 import { nightsBetween, toDateStr } from "../../../src/lib/dates.ts";
 import { formatPHP, quote } from "../../../src/lib/pricing.ts";
 import { ConfirmBtn } from "./_confirm-btn.tsx";
+import { DeleteBtn } from "./_delete-btn.tsx";
 
 export const dynamic = "force-dynamic";
 
@@ -160,13 +161,14 @@ export default async function BookingsPage({
                     </td>
                     <td className="tar mono">{amount || "—"}</td>
                     <td><ConfirmBtn bookingId={b.id} status={b.status} /></td>
-                    <td>
+                    <td style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
                       <Link
                         href={`/admin/bookings/${b.id}/edit`}
                         style={{ fontSize: "0.72rem", color: "var(--accent)", fontWeight: 600, textDecoration: "none" }}
                       >
                         Edit
                       </Link>
+                      <DeleteBtn bookingId={b.id} guest={b.guest} />
                     </td>
                   </tr>
                 );

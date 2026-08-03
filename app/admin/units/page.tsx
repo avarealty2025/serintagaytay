@@ -19,9 +19,14 @@ export default function UnitsPage() {
     <>
       <div className="page-head">
         <h1 className="today">Units</h1>
-        <span className="hint" style={{ fontSize: "0.82rem" }}>
-          {active.length} active, {inactive.length} inactive
-        </span>
+        <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
+          <span className="hint" style={{ fontSize: "0.82rem" }}>
+            {active.length} active, {inactive.length} inactive
+          </span>
+          <Link href="/admin/units/new" className="btn">
+            + Add Unit
+          </Link>
+        </div>
       </div>
 
       <div className="unit-grid">

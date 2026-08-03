@@ -36,7 +36,10 @@ const GROUPS: { title: string; links: { href: string; label: string }[] }[] = [
   },
   {
     title: "Site",
-    links: [{ href: "/", label: "Public site" }],
+    links: [
+      { href: "/admin/site-content", label: "Site Content" },
+      { href: "/", label: "Public Site" },
+    ],
   },
 ];
 
