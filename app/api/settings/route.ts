@@ -7,6 +7,11 @@ export async function GET() {
 }
 
 export async function PUT(req: NextRequest) {
+  const session = req.cookies.get("serin_admin")?.value;
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const body = await req.json();
   const { key, value } = body;
   if (!key || value === undefined) {

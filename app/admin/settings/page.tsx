@@ -1,9 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { UNITS } from "../../../src/data/units.ts";
-import { formatPHP } from "../../../src/lib/pricing.ts";
-import { getSettings, type SystemSettings } from "../../../src/lib/settings.ts";
+import { DEFAULT_SETTINGS, type SystemSettings } from "../../../src/lib/settings.ts";
 
 type Tab =
   | "business"
@@ -19,10 +18,23 @@ type Tab =
   | "system";
 
 export default function SettingsPage() {
-  const initial = getSettings();
   const [tab, setTab] = useState<Tab>("business");
-  const [s, setS] = useState<SystemSettings>(initial);
+  const [s, setS] = useState<SystemSettings>(DEFAULT_SETTINGS);
+  const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then((db) => {
+        if (db.system_settings) {
+          setS({ ...DEFAULT_SETTINGS, ...db.system_settings });
+        }
+        setLoaded(true);
+      })
+      .catch(() => setLoaded(true));
+  }, []);
 
   function update<K extends keyof SystemSettings>(
     section: K,
@@ -34,9 +46,25 @@ export default function SettingsPage() {
     }));
   }
 
-  function save() {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+  async function save() {
+    setSaving(true);
+    try {
+      const res = await fetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: "system_settings", value: s }),
+      });
+      if (res.ok) {
+        setSaved(true);
+        setTimeout(() => setSaved(false), 3000);
+      } else {
+        alert("Failed to save settings");
+      }
+    } catch {
+      alert("Network error");
+    } finally {
+      setSaving(false);
+    }
   }
 
   const TABS: { key: Tab; label: string }[] = [
@@ -53,12 +81,20 @@ export default function SettingsPage() {
     { key: "system", label: "System" },
   ];
 
+  if (!loaded) {
+    return (
+      <div className="panel" style={{ padding: "2rem", textAlign: "center" }}>
+        Loading settings...
+      </div>
+    );
+  }
+
   return (
     <>
       <div className="page-head">
         <h1 className="today">Settings</h1>
-        <button className="btn" onClick={save} type="button">
-          Save All Changes
+        <button className="btn" onClick={save} disabled={saving} type="button">
+          {saving ? "Saving..." : saved ? "Saved!" : "Save All Changes"}
         </button>
       </div>
 
@@ -70,8 +106,7 @@ export default function SettingsPage() {
             background: "color-mix(in srgb, var(--good) 12%, transparent)",
           }}
         >
-          <strong>Saved.</strong> Changes will persist once the database is
-          connected.
+          <strong>Saved.</strong> Settings are now live.
         </div>
       )}
 
@@ -608,8 +643,6 @@ export default function SettingsPage() {
               <div className="form-body">
                 <p style={{ fontSize: "0.78rem", color: "var(--text-3)", margin: "0 0 0.5rem" }}>
                   One rule per line. These apply to all units by default.
-                  Individual units can add their own rules from the Unit Settings
-                  page.
                 </p>
                 <div className="field">
                   <textarea
@@ -642,9 +675,7 @@ export default function SettingsPage() {
               <h2>Booking Statuses</h2>
               <div className="form-body">
                 <p style={{ fontSize: "0.78rem", color: "var(--text-3)", margin: "0 0 0.5rem" }}>
-                  These statuses are used throughout the system. The database
-                  enforces them via an enum type. Adding or removing statuses
-                  requires a migration.
+                  These statuses are used throughout the system.
                 </p>
                 <div className="tbl-scroll">
                   <table className="tbl">
@@ -715,8 +746,9 @@ export default function SettingsPage() {
                             type="text"
                             value={n.name}
                             onChange={(e) => {
-                              const updated = [...s.notifications];
-                              updated[i] = { ...n, name: e.target.value };
+                              const updated = s.notifications.map((item, j) =>
+                                j === i ? { ...item, name: e.target.value } : item,
+                              );
                               setS((prev) => ({ ...prev, notifications: updated }));
                             }}
                           />
@@ -726,8 +758,9 @@ export default function SettingsPage() {
                           <select
                             value={n.enabled ? "yes" : "no"}
                             onChange={(e) => {
-                              const updated = [...s.notifications];
-                              updated[i] = { ...n, enabled: e.target.value === "yes" };
+                              const updated = s.notifications.map((item, j) =>
+                                j === i ? { ...item, enabled: e.target.value === "yes" } : item,
+                              );
                               setS((prev) => ({ ...prev, notifications: updated }));
                             }}
                           >
@@ -742,8 +775,9 @@ export default function SettingsPage() {
                           type="text"
                           value={n.subject}
                           onChange={(e) => {
-                            const updated = [...s.notifications];
-                            updated[i] = { ...n, subject: e.target.value };
+                            const updated = s.notifications.map((item, j) =>
+                              j === i ? { ...item, subject: e.target.value } : item,
+                            );
                             setS((prev) => ({ ...prev, notifications: updated }));
                           }}
                         />
@@ -754,8 +788,9 @@ export default function SettingsPage() {
                           rows={3}
                           value={n.body}
                           onChange={(e) => {
-                            const updated = [...s.notifications];
-                            updated[i] = { ...n, body: e.target.value };
+                            const updated = s.notifications.map((item, j) =>
+                              j === i ? { ...item, body: e.target.value } : item,
+                            );
                             setS((prev) => ({ ...prev, notifications: updated }));
                           }}
                         />
@@ -773,15 +808,7 @@ export default function SettingsPage() {
               <div className="form-body">
                 <div className="summary-row">
                   <span>Database</span>
-                  <span className="status-pill warn">Not connected</span>
-                </div>
-                <div className="summary-row">
-                  <span>Data Source</span>
-                  <span className="mono">CSV files (local)</span>
-                </div>
-                <div className="summary-row">
-                  <span>iCal Sync</span>
-                  <span className="status-pill warn">Pending setup</span>
+                  <span className="status-pill ok">Connected (Supabase)</span>
                 </div>
                 <div className="summary-row">
                   <span>Vercel</span>
@@ -793,13 +820,6 @@ export default function SettingsPage() {
                     {UNITS.filter((u) => u.active).length} of {UNITS.length}
                   </span>
                 </div>
-                <div className="sep" />
-                <p style={{ fontSize: "0.78rem", color: "var(--text-3)", margin: 0 }}>
-                  To connect the database: create a Supabase project (Singapore
-                  region), fill <code>.env.local</code>, run the migrations, then
-                  redeploy. All settings will persist to the database
-                  automatically.
-                </p>
               </div>
             </div>
           )}
