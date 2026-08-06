@@ -30,6 +30,7 @@ export async function GET(
     if (rowAppId === appId) {
       return NextResponse.json({
         id: rowAppId,
+        supabaseId: row.id,
         name: row.name ?? "",
         description: row.description ?? "",
         type: row.type,

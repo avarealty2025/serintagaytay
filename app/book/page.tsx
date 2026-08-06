@@ -67,6 +67,10 @@ function BookPageInner() {
   const [uploading, setUploading] = useState(false);
   const [proofPath, setProofPath] = useState("");
 
+  const [promoCode, setPromoCode] = useState("");
+  const [promoValidating, setPromoValidating] = useState(false);
+  const [promoResult, setPromoResult] = useState<{ valid: boolean; discountPct?: number; codeId?: string; error?: string } | null>(null);
+
   const [submitting, setSubmitting] = useState(false);
   const [bookingRef, setBookingRef] = useState("");
   const [submitError, setSubmitError] = useState("");
@@ -121,6 +125,35 @@ function BookPageInner() {
     }
   }
 
+  async function handleApplyPromo() {
+    if (!promoCode.trim()) return;
+    setPromoValidating(true);
+    setPromoResult(null);
+    try {
+      const res = await fetch("/api/promo-codes/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: promoCode.trim() }),
+      });
+      const data = await res.json();
+      setPromoResult(data);
+    } catch {
+      setPromoResult({ valid: false, error: "Connection error" });
+    } finally {
+      setPromoValidating(false);
+    }
+  }
+
+  function clearPromo() {
+    setPromoCode("");
+    setPromoResult(null);
+  }
+
+  const promoDiscount = promoResult?.valid && promoResult.discountPct && selectedPrice
+    ? Math.round(selectedPrice.total * promoResult.discountPct / 100 * 100) / 100
+    : 0;
+  const finalTotal = selectedPrice ? selectedPrice.total - promoDiscount : 0;
+
   async function handleSubmitBooking() {
     if (!selectedUnit || !selectedPrice) return;
     setSubmitting(true);
@@ -139,12 +172,14 @@ function BookPageInner() {
           checkOut,
           guests: guestList.filter((g) => g.trim()).length || guests,
           source: "direct",
-          grossAmount: selectedPrice.total,
+          grossAmount: finalTotal,
           notes: requests || undefined,
           proofPath: proofPath || undefined,
           guestList: guestList.filter((g) => g.trim()),
           paymentType,
-          amountPaid: selectedPrice.total,
+          amountPaid: finalTotal,
+          promoCodeId: promoResult?.valid ? promoResult.codeId : undefined,
+          discountAmount: promoDiscount || undefined,
         }),
       });
 
@@ -353,7 +388,57 @@ function BookPageInner() {
                       </div>
                     ))}
                     <div className="sep" />
-                    <div className="summary-row total"><span>Total</span><span className="mono">{formatPHP(selectedPrice.total)}</span></div>
+                    <div className="summary-row"><span>Subtotal</span><span className="mono">{formatPHP(selectedPrice.total)}</span></div>
+
+                    {/* Promo code */}
+                    <div style={{ padding: "0.75rem 0" }}>
+                      {promoResult?.valid ? (
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <span style={{ fontSize: "0.82rem", color: "var(--good)", fontWeight: 600 }}>
+                            {promoCode.toUpperCase()} (-{promoResult.discountPct}%)
+                          </span>
+                          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                            <span className="mono" style={{ color: "var(--good)", fontWeight: 600 }}>-{formatPHP(promoDiscount)}</span>
+                            <button
+                              type="button"
+                              onClick={clearPromo}
+                              style={{ background: "none", border: "none", color: "var(--text-3)", cursor: "pointer", fontSize: "0.85rem", padding: 0 }}
+                            >
+                              &times;
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div>
+                          <div style={{ display: "flex", gap: "0.5rem" }}>
+                            <input
+                              type="text"
+                              value={promoCode}
+                              onChange={(e) => { setPromoCode(e.target.value.toUpperCase()); setPromoResult(null); }}
+                              placeholder="Promo code"
+                              style={{ flex: 1, textTransform: "uppercase", fontFamily: "var(--mono)", fontSize: "0.82rem", letterSpacing: "0.08em", padding: "0.4rem 0.6rem" }}
+                            />
+                            <button
+                              type="button"
+                              className="btn btn-sm"
+                              onClick={handleApplyPromo}
+                              disabled={!promoCode.trim() || promoValidating}
+                              style={{ fontSize: "0.78rem", padding: "0.4rem 0.75rem", whiteSpace: "nowrap" }}
+                            >
+                              {promoValidating ? "..." : "Apply"}
+                            </button>
+                          </div>
+                          {promoResult && !promoResult.valid && (
+                            <p style={{ color: "var(--crit)", fontSize: "0.75rem", margin: "0.35rem 0 0" }}>
+                              {promoResult.error}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="sep" />
+                    <div className="summary-row total"><span>Total</span><span className="mono">{formatPHP(finalTotal)}</span></div>
                   </div>
                 </div>
                 <div style={{ display: "flex", gap: "0.75rem" }}>
@@ -412,7 +497,7 @@ function BookPageInner() {
                 {paymentType === "reservation" && (
                   <div style={{ padding: "0.75rem", background: "color-mix(in srgb, var(--accent) 6%, transparent)", borderRadius: "8px", borderLeft: "3px solid var(--accent)" }}>
                     <p style={{ fontSize: "0.82rem", color: "var(--text-2)", margin: 0 }}>
-                      Send the reservation fee now. Your remaining balance of the total <strong>{formatPHP(selectedPrice.total)}</strong> must be settled on or before your arrival date.
+                      Send the reservation fee now. Your remaining balance of the total <strong>{formatPHP(finalTotal)}</strong> must be settled on or before your arrival date.
                     </p>
                   </div>
                 )}
@@ -424,7 +509,7 @@ function BookPageInner() {
               <div className="form-body">
                 <p style={{ fontSize: "0.85rem", color: "var(--text-2)", margin: "0 0 1rem" }}>
                   {paymentType === "full"
-                    ? <>Send <strong>{formatPHP(selectedPrice.total)}</strong> to any of the channels below, then upload a screenshot of your payment.</>
+                    ? <>Send <strong>{formatPHP(finalTotal)}</strong> to any of the channels below, then upload a screenshot of your payment.</>
                     : <>Send your reservation fee to any of the channels below, then upload a screenshot of your payment.</>
                   }
                 </p>

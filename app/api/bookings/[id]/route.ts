@@ -40,6 +40,8 @@ export async function GET(
     proofPath: data.proof_path ?? null,
     paymentType: data.payment_type ?? "reservation",
     amountPaid: Number(data.amount_paid ?? 0),
+    promoCodeId: data.promo_code_id ?? null,
+    discountAmount: Number(data.discount_amount ?? 0),
   });
 }
 

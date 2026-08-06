@@ -45,6 +45,8 @@ interface BookingData {
   proofPath: string | null;
   paymentType: "reservation" | "full";
   amountPaid: number;
+  promoCodeId: string | null;
+  discountAmount: number;
 }
 
 export default function EditBookingPage() {
@@ -71,6 +73,7 @@ export default function EditBookingPage() {
   const [grossAmount, setGrossAmount] = useState(0);
   const [paymentType, setPaymentType] = useState<"reservation" | "full">("reservation");
   const [amountPaid, setAmountPaid] = useState(0);
+  const [discountAmount, setDiscountAmount] = useState(0);
   const [proofUrl, setProofUrl] = useState<string | null>(null);
   const [proofLoading, setProofLoading] = useState(false);
 
@@ -91,6 +94,7 @@ export default function EditBookingPage() {
         setGrossAmount(data.grossAmount || 0);
         setPaymentType(data.paymentType || "reservation");
         setAmountPaid(data.amountPaid || 0);
+        setDiscountAmount(data.discountAmount || 0);
         setLoading(false);
         if (data.proofPath) {
           setProofLoading(true);
@@ -259,6 +263,13 @@ export default function EditBookingPage() {
               <div style={{ padding: "0.6rem 0.9rem", background: "color-mix(in srgb, var(--good) 12%, transparent)", borderRadius: "6px", borderLeft: "3px solid var(--good)", marginBottom: "0.75rem" }}>
                 <p style={{ margin: 0, fontSize: "0.82rem", color: "var(--good)", fontWeight: 600 }}>
                   Fully Paid
+                </p>
+              </div>
+            )}
+            {discountAmount > 0 && (
+              <div style={{ padding: "0.6rem 0.9rem", background: "color-mix(in srgb, var(--accent) 8%, transparent)", borderRadius: "6px", borderLeft: "3px solid var(--accent)", marginBottom: "0.75rem" }}>
+                <p style={{ margin: 0, fontSize: "0.82rem", color: "var(--text-2)" }}>
+                  <strong>Promo Discount Applied:</strong> PHP {discountAmount.toLocaleString("en-PH", { minimumFractionDigits: 2 })}
                 </p>
               </div>
             )}

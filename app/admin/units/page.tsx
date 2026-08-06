@@ -23,6 +23,9 @@ export default function UnitsPage() {
           <span className="hint" style={{ fontSize: "0.82rem" }}>
             {active.length} active, {inactive.length} inactive
           </span>
+          <Link href="/admin/units/bulk" className="btn btn-outline">
+            Bulk Edit
+          </Link>
           <Link href="/admin/units/new" className="btn">
             + Add Unit
           </Link>
