@@ -41,4 +41,5 @@ Thumbs.db
 #
 # Keep these local. `npm run replay` and the dev server read them from disk.
 data/*.csv
+scratchpad/
 .vercel
