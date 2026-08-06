@@ -42,6 +42,9 @@ interface BookingData {
   source: string;
   grossAmount: number;
   notes: string;
+  proofPath: string | null;
+  paymentType: "reservation" | "full";
+  amountPaid: number;
 }
 
 export default function EditBookingPage() {
@@ -66,6 +69,10 @@ export default function EditBookingPage() {
   const [guestPhone, setGuestPhone] = useState("");
   const [notes, setNotes] = useState("");
   const [grossAmount, setGrossAmount] = useState(0);
+  const [paymentType, setPaymentType] = useState<"reservation" | "full">("reservation");
+  const [amountPaid, setAmountPaid] = useState(0);
+  const [proofUrl, setProofUrl] = useState<string | null>(null);
+  const [proofLoading, setProofLoading] = useState(false);
 
   useEffect(() => {
     fetch(`/api/bookings/${bookingId}`)
@@ -82,7 +89,17 @@ export default function EditBookingPage() {
         setGuestPhone(data.guestPhone || "");
         setNotes(data.notes || "");
         setGrossAmount(data.grossAmount || 0);
+        setPaymentType(data.paymentType || "reservation");
+        setAmountPaid(data.amountPaid || 0);
         setLoading(false);
+        if (data.proofPath) {
+          setProofLoading(true);
+          fetch(`/api/proof-url?path=${encodeURIComponent(data.proofPath)}`)
+            .then((r) => r.json())
+            .then((d) => { if (d.url) setProofUrl(d.url); })
+            .catch(() => {})
+            .finally(() => setProofLoading(false));
+        }
       })
       .catch(() => {
         setError("Failed to load booking");
@@ -111,6 +128,8 @@ export default function EditBookingPage() {
           guestPhone,
           notes,
           grossAmount,
+          paymentType,
+          amountPaid,
         }),
       });
 
@@ -193,7 +212,7 @@ export default function EditBookingPage() {
 
             <div className="field-row">
               <div className="field">
-                <label htmlFor="grossAmount">Amount (PHP)</label>
+                <label htmlFor="grossAmount">Total Amount (PHP)</label>
                 <input
                   type="number"
                   id="grossAmount"
@@ -208,6 +227,41 @@ export default function EditBookingPage() {
                 <input type="text" value={guestList.filter((g) => g.trim()).length || guests} disabled />
               </div>
             </div>
+
+            <div className="field-row">
+              <div className="field">
+                <label htmlFor="paymentType">Payment Type</label>
+                <select id="paymentType" value={paymentType} onChange={(e) => setPaymentType(e.target.value as "reservation" | "full")}>
+                  <option value="reservation">Reservation Fee Only</option>
+                  <option value="full">Full Payment</option>
+                </select>
+              </div>
+              <div className="field">
+                <label htmlFor="amountPaid">Amount Paid (PHP)</label>
+                <input
+                  type="number"
+                  id="amountPaid"
+                  value={amountPaid}
+                  onChange={(e) => setAmountPaid(Number(e.target.value))}
+                  min={0}
+                  step={0.01}
+                />
+              </div>
+            </div>
+            {paymentType === "reservation" && grossAmount > 0 && amountPaid > 0 && amountPaid < grossAmount && (
+              <div style={{ padding: "0.6rem 0.9rem", background: "color-mix(in srgb, var(--warn, #C89F45) 12%, transparent)", borderRadius: "6px", borderLeft: "3px solid var(--warn, #C89F45)", marginBottom: "0.75rem" }}>
+                <p style={{ margin: 0, fontSize: "0.82rem", color: "var(--text-2)" }}>
+                  <strong>Balance:</strong> PHP {(grossAmount - amountPaid).toLocaleString("en-PH", { minimumFractionDigits: 2 })} — to be settled on or before arrival
+                </p>
+              </div>
+            )}
+            {paymentType === "full" && amountPaid >= grossAmount && grossAmount > 0 && (
+              <div style={{ padding: "0.6rem 0.9rem", background: "color-mix(in srgb, var(--good) 12%, transparent)", borderRadius: "6px", borderLeft: "3px solid var(--good)", marginBottom: "0.75rem" }}>
+                <p style={{ margin: 0, fontSize: "0.82rem", color: "var(--good)", fontWeight: 600 }}>
+                  Fully Paid
+                </p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -272,6 +326,30 @@ export default function EditBookingPage() {
               </div>
             </div>
           </div>
+
+          {(proofUrl || proofLoading) && (
+            <div className="panel form-panel" style={{ marginTop: "1rem" }}>
+              <h2>Payment Proof</h2>
+              <div className="form-body">
+                {proofLoading ? (
+                  <p style={{ color: "var(--text-3)", fontSize: "0.85rem" }}>Loading proof image...</p>
+                ) : proofUrl ? (
+                  <div>
+                    <a href={proofUrl} target="_blank" rel="noopener noreferrer">
+                      <img
+                        src={proofUrl}
+                        alt="Payment proof"
+                        style={{ maxWidth: "100%", maxHeight: "400px", borderRadius: "8px", border: "1px solid var(--line)", cursor: "pointer" }}
+                      />
+                    </a>
+                    <p style={{ fontSize: "0.75rem", color: "var(--text-3)", marginTop: "0.5rem" }}>
+                      Click image to open full size in new tab
+                    </p>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          )}
 
           <button
             className="btn"

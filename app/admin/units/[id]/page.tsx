@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { UNITS, TAAL_VIEW_CODES } from "../../../../src/data/units.ts";
 import { formatPHP } from "../../../../src/lib/pricing.ts";
-import { getSettings } from "../../../../src/lib/settings.ts";
 
 const TYPE_LABEL: Record<string, string> = {
   studio: "Studio",
@@ -38,18 +37,19 @@ export default function UnitEditPage() {
   const params = useParams();
   const unitId = params.id as string;
   const unit = UNITS.find((u) => u.id === unitId);
-  const settings = getSettings();
 
   const [name, setName] = useState(unit?.name ?? "");
   const [description, setDescription] = useState(unit?.description ?? "");
   const [inclusions, setInclusions] = useState((unit?.inclusions ?? []).join("\n"));
   const [weekdayRate, setWeekdayRate] = useState(unit?.baseRate ?? 0);
   const [weekendRate, setWeekendRate] = useState(unit?.weekendRate ?? 0);
-  const [holidayRate, setHolidayRate] = useState(0);
-  const [peakRate, setPeakRate] = useState(0);
   const [cleaningFee, setCleaningFee] = useState(unit?.cleaningFee ?? 0);
   const [extraGuestFee, setExtraGuestFee] = useState(unit?.extraGuestFee ?? 0);
-  const [securityDeposit, setSecurityDeposit] = useState(settings.fees.securityDeposit);
+  const [parkingFee, setParkingFee] = useState(0);
+  const [earlyCheckinFee, setEarlyCheckinFee] = useState(0);
+  const [lateCheckoutFee, setLateCheckoutFee] = useState(0);
+  const [weeklyDiscountPct, setWeeklyDiscountPct] = useState(0);
+  const [monthlyDiscountPct, setMonthlyDiscountPct] = useState(0);
   const [capacity, setCapacity] = useState(unit?.capacity ?? 2);
   const [maxGuests, setMaxGuests] = useState(unit?.maxGuests ?? 4);
   const [minStay, setMinStay] = useState(unit?.minStay ?? 1);
@@ -62,17 +62,39 @@ export default function UnitEditPage() {
     "Towels & Linens",
     "Swimming Pool Access",
   ]);
-  const [houseRules, setHouseRules] = useState(settings.houseRules.join("\n"));
-  const [checkInTime, setCheckInTime] = useState(settings.booking.checkInTime);
-  const [checkOutTime, setCheckOutTime] = useState(settings.booking.checkOutTime);
   const [unitType, setUnitType] = useState<string>(unit?.type ?? "studio");
   const [unitView, setUnitView] = useState(unit ? (TAAL_VIEW_CODES.has(unit.code) ? "Taal Caldera View" : "Ridge Side") : "");
-  const [status, setStatus] = useState<"available" | "occupied" | "maintenance">("available");
   const [icalUrl, setIcalUrl] = useState("");
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [dbLoaded, setDbLoaded] = useState(false);
 
   useEffect(() => {
+    fetch(`/api/units/${unitId}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (!data.error) {
+          setName(data.name || "");
+          setDescription(data.description || "");
+          setWeekdayRate(data.baseRate ?? 0);
+          setWeekendRate(data.weekendRate ?? 0);
+          setCleaningFee(data.cleaningFee ?? 0);
+          setExtraGuestFee(data.extraGuestFee ?? 0);
+          setParkingFee(data.parkingFee ?? 0);
+          setEarlyCheckinFee(data.earlyCheckinFee ?? 0);
+          setLateCheckoutFee(data.lateCheckoutFee ?? 0);
+          setWeeklyDiscountPct(data.weeklyDiscountPct ?? 0);
+          setMonthlyDiscountPct(data.monthlyDiscountPct ?? 0);
+          setCapacity(data.capacity ?? 2);
+          setMaxGuests(data.maxGuests ?? 4);
+          setMinStay(data.minStay ?? 1);
+          if (data.amenities?.length) setAmenities(data.amenities);
+          if (data.type) setUnitType(data.type);
+        }
+        setDbLoaded(true);
+      })
+      .catch(() => setDbLoaded(true));
+
     fetch("/api/units/ical-urls")
       .then((r) => r.json())
       .then((data) => {
@@ -96,16 +118,45 @@ export default function UnitEditPage() {
     );
   }
 
-  const taal = TAAL_VIEW_CODES.has(unit.code);
-
   async function handleSave() {
     setSaving(true);
     try {
-      await fetch("/api/units/ical-urls", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ unitId, icalUrl }),
-      });
+      const [unitRes, icalRes] = await Promise.all([
+        fetch(`/api/units/${unitId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name,
+            description,
+            type: unitType,
+            baseRate: weekdayRate,
+            weekendRate,
+            cleaningFee,
+            extraGuestFee,
+            parkingFee,
+            earlyCheckinFee,
+            lateCheckoutFee,
+            weeklyDiscountPct,
+            monthlyDiscountPct,
+            capacity,
+            maxGuests,
+            minStay,
+            amenities,
+          }),
+        }),
+        fetch("/api/units/ical-urls", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ unitId, icalUrl }),
+        }),
+      ]);
+
+      const unitData = await unitRes.json();
+      if (!unitRes.ok || unitData.error) {
+        alert(`Failed to save unit: ${unitData.error || "Unknown error"}`);
+        return;
+      }
+
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch {
@@ -147,24 +198,12 @@ export default function UnitEditPage() {
           >
             Photos
           </Link>
-          <button
-            className="btn-outline btn-sm"
-            type="button"
-            style={{ color: "var(--crit)", borderColor: "var(--crit)" }}
-            onClick={() => {
-              if (confirm(`Delete unit ${unit.tower}-${unit.code}? This will deactivate the unit and remove it from the public listing.`)) {
-                alert("Unit deactivated. Changes will persist once the database is connected.");
-              }
-            }}
-          >
-            Delete Unit
-          </button>
         </div>
       </div>
 
       {saved && (
         <div className="notice" style={{ borderLeftColor: "var(--good)", background: "color-mix(in srgb, var(--good) 12%, transparent)" }}>
-          <strong>Saved.</strong> iCal URL updated successfully.
+          <strong>Saved.</strong> Unit updated successfully.
         </div>
       )}
 
@@ -191,18 +230,6 @@ export default function UnitEditPage() {
                   placeholder="Describe this unit for the public listing..."
                 />
               </div>
-              <div className="field">
-                <label>Inclusions (one per line)</label>
-                <textarea
-                  rows={4}
-                  value={inclusions}
-                  onChange={(e) => setInclusions(e.target.value)}
-                  placeholder="Wi-Fi&#10;Air Conditioning&#10;Smart TV with Netflix"
-                />
-                <p style={{ margin: "0.25rem 0 0", fontSize: "0.72rem", color: "var(--text-3)" }}>
-                  {inclusions.split("\n").filter(Boolean).length} items &middot; shown on the public unit page
-                </p>
-              </div>
               <div className="field-row">
                 <div className="field">
                   <label>Type</label>
@@ -220,27 +247,6 @@ export default function UnitEditPage() {
                     value={unitView}
                     onChange={(e) => setUnitView(e.target.value)}
                     placeholder="e.g. Taal Caldera View, Ridge Side..."
-                  />
-                </div>
-              </div>
-              <div className="field-row">
-                <div className="field">
-                  <label>Status</label>
-                  <select
-                    value={status}
-                    onChange={(e) => setStatus(e.target.value as typeof status)}
-                  >
-                    <option value="available">Available</option>
-                    <option value="occupied">Occupied</option>
-                    <option value="maintenance">Under Maintenance</option>
-                  </select>
-                </div>
-                <div className="field">
-                  <label>Building</label>
-                  <input
-                    type="text"
-                    value={`Serin ${unit.buildingId === "west" ? "West" : "East"}, Tower ${unit.tower}`}
-                    disabled
                   />
                 </div>
               </div>
@@ -284,30 +290,6 @@ export default function UnitEditPage() {
                   />
                 </div>
               </div>
-              <div className="field-row">
-                <div className="field">
-                  <label>Holiday Rate (PHP)</label>
-                  <input
-                    type="number"
-                    value={holidayRate}
-                    onChange={(e) => setHolidayRate(Number(e.target.value))}
-                    min={0}
-                    step={100}
-                    placeholder="0 = use weekend rate"
-                  />
-                </div>
-                <div className="field">
-                  <label>Peak Season Rate (PHP)</label>
-                  <input
-                    type="number"
-                    value={peakRate}
-                    onChange={(e) => setPeakRate(Number(e.target.value))}
-                    min={0}
-                    step={100}
-                    placeholder="0 = use weekend rate"
-                  />
-                </div>
-              </div>
             </div>
           </div>
 
@@ -338,19 +320,83 @@ export default function UnitEditPage() {
               </div>
               <div className="field-row">
                 <div className="field">
-                  <label>Security Deposit (PHP)</label>
+                  <label>Parking Fee (PHP)</label>
                   <input
                     type="number"
-                    value={securityDeposit}
-                    onChange={(e) => setSecurityDeposit(Number(e.target.value))}
+                    value={parkingFee}
+                    onChange={(e) => setParkingFee(Number(e.target.value))}
                     min={0}
-                    step={100}
+                    step={50}
                   />
+                  <p style={{ margin: "0.25rem 0 0", fontSize: "0.72rem", color: "var(--text-3)" }}>
+                    Per stay. Set 0 if parking is free or not available.
+                  </p>
                 </div>
                 <div className="field">
                   <label>&nbsp;</label>
-                  <p style={{ margin: 0, fontSize: "0.75rem", color: "var(--text-3)" }}>
-                    Refundable upon checkout inspection
+                </div>
+              </div>
+              <div className="field-row">
+                <div className="field">
+                  <label>Early Check-in Fee (PHP)</label>
+                  <input
+                    type="number"
+                    value={earlyCheckinFee}
+                    onChange={(e) => setEarlyCheckinFee(Number(e.target.value))}
+                    min={0}
+                    step={50}
+                  />
+                  <p style={{ margin: "0.25rem 0 0", fontSize: "0.72rem", color: "var(--text-3)" }}>
+                    Charged when guest requests early check-in
+                  </p>
+                </div>
+                <div className="field">
+                  <label>Late Check-out Fee (PHP)</label>
+                  <input
+                    type="number"
+                    value={lateCheckoutFee}
+                    onChange={(e) => setLateCheckoutFee(Number(e.target.value))}
+                    min={0}
+                    step={50}
+                  />
+                  <p style={{ margin: "0.25rem 0 0", fontSize: "0.72rem", color: "var(--text-3)" }}>
+                    Charged when guest requests late check-out
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="form-panel" style={{ marginTop: "1.5rem" }}>
+            <h2>Discounts</h2>
+            <div className="form-body">
+              <div className="field-row">
+                <div className="field">
+                  <label>Weekly Discount (%)</label>
+                  <input
+                    type="number"
+                    value={weeklyDiscountPct}
+                    onChange={(e) => setWeeklyDiscountPct(Number(e.target.value))}
+                    min={0}
+                    max={100}
+                    step={1}
+                  />
+                  <p style={{ margin: "0.25rem 0 0", fontSize: "0.72rem", color: "var(--text-3)" }}>
+                    Applied to stays of 7+ nights
+                  </p>
+                </div>
+                <div className="field">
+                  <label>Monthly Discount (%)</label>
+                  <input
+                    type="number"
+                    value={monthlyDiscountPct}
+                    onChange={(e) => setMonthlyDiscountPct(Number(e.target.value))}
+                    min={0}
+                    max={100}
+                    step={1}
+                  />
+                  <p style={{ margin: "0.25rem 0 0", fontSize: "0.72rem", color: "var(--text-3)" }}>
+                    Applied to stays of 28+ nights
                   </p>
                 </div>
               </div>
@@ -403,30 +449,6 @@ export default function UnitEditPage() {
           </div>
 
           <div className="form-panel" style={{ marginTop: "1.5rem" }}>
-            <h2>Check-in / Check-out Times</h2>
-            <div className="form-body">
-              <div className="field-row">
-                <div className="field">
-                  <label>Check-in Time</label>
-                  <input
-                    type="time"
-                    value={checkInTime}
-                    onChange={(e) => setCheckInTime(e.target.value)}
-                  />
-                </div>
-                <div className="field">
-                  <label>Check-out Time</label>
-                  <input
-                    type="time"
-                    value={checkOutTime}
-                    onChange={(e) => setCheckOutTime(e.target.value)}
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="form-panel" style={{ marginTop: "1.5rem" }}>
             <h2>Amenities</h2>
             <div className="form-body">
               <div className="amenity-grid">
@@ -440,20 +462,6 @@ export default function UnitEditPage() {
                     <span>{a}</span>
                   </label>
                 ))}
-              </div>
-            </div>
-          </div>
-
-          <div className="form-panel" style={{ marginTop: "1.5rem" }}>
-            <h2>House Rules</h2>
-            <div className="form-body">
-              <div className="field">
-                <label>Rules (one per line)</label>
-                <textarea
-                  rows={6}
-                  value={houseRules}
-                  onChange={(e) => setHouseRules(e.target.value)}
-                />
               </div>
             </div>
           </div>
@@ -490,18 +498,6 @@ export default function UnitEditPage() {
                 <span>Weekend</span>
                 <span className="mono">{formatPHP(weekendRate)}</span>
               </div>
-              {holidayRate > 0 && (
-                <div className="summary-row">
-                  <span>Holiday</span>
-                  <span className="mono">{formatPHP(holidayRate)}</span>
-                </div>
-              )}
-              {peakRate > 0 && (
-                <div className="summary-row">
-                  <span>Peak</span>
-                  <span className="mono">{formatPHP(peakRate)}</span>
-                </div>
-              )}
               <div className="sep" />
               <div className="summary-row">
                 <span>Cleaning</span>
@@ -515,13 +511,42 @@ export default function UnitEditPage() {
                   {extraGuestFee > 0 ? formatPHP(extraGuestFee) : "Not set"}
                 </span>
               </div>
-              <div className="summary-row">
-                <span>Deposit</span>
-                <span className="mono">
-                  {securityDeposit > 0 ? formatPHP(securityDeposit) : "Not set"}
-                </span>
-              </div>
+              {parkingFee > 0 && (
+                <div className="summary-row">
+                  <span>Parking</span>
+                  <span className="mono">{formatPHP(parkingFee)}</span>
+                </div>
+              )}
+              {earlyCheckinFee > 0 && (
+                <div className="summary-row">
+                  <span>Early Check-in</span>
+                  <span className="mono">{formatPHP(earlyCheckinFee)}</span>
+                </div>
+              )}
+              {lateCheckoutFee > 0 && (
+                <div className="summary-row">
+                  <span>Late Check-out</span>
+                  <span className="mono">{formatPHP(lateCheckoutFee)}</span>
+                </div>
+              )}
               <div className="sep" />
+              {(weeklyDiscountPct > 0 || monthlyDiscountPct > 0) && (
+                <>
+                  {weeklyDiscountPct > 0 && (
+                    <div className="summary-row">
+                      <span>Weekly Discount</span>
+                      <span>{weeklyDiscountPct}%</span>
+                    </div>
+                  )}
+                  {monthlyDiscountPct > 0 && (
+                    <div className="summary-row">
+                      <span>Monthly Discount</span>
+                      <span>{monthlyDiscountPct}%</span>
+                    </div>
+                  )}
+                  <div className="sep" />
+                </>
+              )}
               <div className="summary-row">
                 <span>Capacity</span>
                 <span>{capacity}-{maxGuests} guests</span>

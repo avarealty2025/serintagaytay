@@ -24,10 +24,10 @@ export default async function Dashboard() {
   const tomorrow = addDays(today, 1);
   const tomorrowArrivals = bookings.filter((b) => b.checkIn === tomorrow);
 
-  let totalRevenue = 0;
-  let thisMonthRevenue = 0;
   let totalNights = 0;
   const monthPrefix = today.slice(0, 7);
+
+  const unitMonthRevenue = new Map<string, Map<string, number>>();
 
   for (const b of bookings) {
     let nights = 0;
@@ -43,13 +43,23 @@ export default async function Dashboard() {
     try {
       const p = quote(unit, b.checkIn, b.checkOut, b.guests || 2);
       if (!p.requiresManualQuote) {
-        totalRevenue += p.total;
-        if (b.checkIn.startsWith(monthPrefix)) {
-          thisMonthRevenue += p.total;
+        const month = b.checkIn.slice(0, 7);
+        if (!unitMonthRevenue.has(b.unitId)) {
+          unitMonthRevenue.set(b.unitId, new Map());
         }
+        const monthMap = unitMonthRevenue.get(b.unitId)!;
+        monthMap.set(month, (monthMap.get(month) ?? 0) + p.total);
       }
     } catch { /* skip */ }
   }
+
+  const allMonths = new Set<string>();
+  for (const monthMap of unitMonthRevenue.values()) {
+    for (const m of monthMap.keys()) allMonths.add(m);
+  }
+  const sortedMonths = [...allMonths].sort().reverse();
+
+  const unitIdsWithRevenue = [...unitMonthRevenue.keys()].sort();
 
   const totalAvailableNights = active.length * 92;
   const occupancyRate = totalAvailableNights > 0
@@ -75,20 +85,6 @@ export default async function Dashboard() {
       </div>
 
       <div className="tiles">
-        <div className="tile">
-          <p className="k">Total Revenue</p>
-          <p className="v" style={{ fontSize: "1.2rem" }}>
-            {formatPHP(totalRevenue)}
-          </p>
-          <p className="s">all bookings</p>
-        </div>
-        <div className="tile">
-          <p className="k">This Month</p>
-          <p className="v" style={{ fontSize: "1.2rem" }}>
-            {formatPHP(thisMonthRevenue)}
-          </p>
-          <p className="s">{monthPrefix}</p>
-        </div>
         <div className="tile">
           <p className="k">Occupancy</p>
           <p className="v">{occupancyRate}%</p>
@@ -244,9 +240,43 @@ export default async function Dashboard() {
         </div>
       )}
 
+      {unitIdsWithRevenue.length > 0 && (
+        <div className="panel">
+          <h2>Revenue Per Unit Per Month</h2>
+          <div className="tbl-scroll">
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th>Unit</th>
+                  {sortedMonths.map((m) => (
+                    <th key={m} className="tar">{m}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {unitIdsWithRevenue.map((uid) => {
+                  const u = unitMap.get(uid);
+                  const monthMap = unitMonthRevenue.get(uid)!;
+                  return (
+                    <tr key={uid}>
+                      <td className="mono">{u ? `${u.tower}-${u.code}` : uid}</td>
+                      {sortedMonths.map((m) => (
+                        <td key={m} className="tar mono">
+                          {monthMap.has(m) ? formatPHP(monthMap.get(m)!) : "—"}
+                        </td>
+                      ))}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       <p className="foot">
         Reading {bookings.length} bookings from the owner&rsquo;s sheet.
-        {" "}Revenue is estimated from unit rates (cleaning fees and extra guest fees not yet set).
+        {" "}Revenue is estimated from unit rates.
       </p>
     </>
   );

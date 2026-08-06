@@ -12,7 +12,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { unitId, guestName, guestEmail, guestPhone, checkIn, checkOut, guests, source, grossAmount, notes, proofPath, guestList } = body;
+  const { unitId, guestName, guestEmail, guestPhone, checkIn, checkOut, guests, source, grossAmount, notes, proofPath, guestList, paymentType, amountPaid } = body;
   if (!unitId || !guestName || !checkIn || !checkOut) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
@@ -29,6 +29,8 @@ export async function POST(req: NextRequest) {
     notes,
     proofPath,
     guestList: Array.isArray(guestList) ? guestList.filter((g: string) => g.trim()) : [],
+    paymentType: paymentType || "reservation",
+    amountPaid: Number(amountPaid) || 0,
   });
   if (result.error) return NextResponse.json({ error: result.error }, { status: 500 });
   await logAudit({ entity: "bookings", entityId: result.id!, action: "insert", after: body });
@@ -53,6 +55,7 @@ export async function POST(req: NextRequest) {
     guests: Number(guests) || 2,
     totalAmount,
     bookingId: result.id!,
+    paymentType: paymentType || "reservation",
   };
 
   const emailResults: { admin?: string; guest?: string } = {};

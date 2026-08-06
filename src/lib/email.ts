@@ -135,6 +135,7 @@ export function bookingReceivedHtml(data: {
   guests: number;
   totalAmount: string;
   bookingId: string;
+  paymentType?: "reservation" | "full";
 }): string {
   return `
 <!DOCTYPE html>
@@ -192,9 +193,15 @@ export function bookingReceivedHtml(data: {
         </table>
 
         <div style="margin:24px 0;padding:16px;background:#f8f6f2;border-radius:8px;border-left:3px solid #C89F45">
-          <p style="color:#555;font-size:13px;line-height:1.6;margin:0">
-            We are reviewing your payment. You will receive a <strong>confirmation email</strong> once your booking is approved.
-          </p>
+          ${data.paymentType === "full"
+            ? `<p style="color:#2F5A1E;font-size:13px;line-height:1.6;margin:0;font-weight:600">
+                You have submitted full payment of ${data.totalAmount}. We are reviewing your payment and will send a confirmation email once approved.
+              </p>`
+            : `<p style="color:#555;font-size:13px;line-height:1.6;margin:0">
+                You have submitted a <strong>reservation fee</strong>. Your remaining balance of <strong>${data.totalAmount}</strong> must be settled <strong>on or before your arrival date</strong>.
+                We are reviewing your payment and will send a confirmation email once approved.
+              </p>`
+          }
         </div>
 
         <p style="color:#888;font-size:12px;line-height:1.6;margin:24px 0 0">
@@ -224,6 +231,7 @@ export function bookingRequestHtml(data: {
   guests: number;
   totalAmount: string;
   bookingId: string;
+  paymentType?: "reservation" | "full";
 }): string {
   return `
 <!DOCTYPE html>
@@ -280,8 +288,14 @@ export function bookingRequestHtml(data: {
             <td style="padding:10px 0;border-bottom:1px solid #eee">${data.guests}</td>
           </tr>
           <tr>
-            <td style="padding:10px 0;color:#888">Total</td>
-            <td style="padding:10px 0;font-weight:700;color:#2F5A1E;font-size:16px">${data.totalAmount}</td>
+            <td style="padding:10px 0;border-bottom:1px solid #eee;color:#888">Total</td>
+            <td style="padding:10px 0;border-bottom:1px solid #eee;font-weight:700;color:#2F5A1E;font-size:16px">${data.totalAmount}</td>
+          </tr>
+          <tr>
+            <td style="padding:10px 0;color:#888">Payment</td>
+            <td style="padding:10px 0;font-weight:600;color:${data.paymentType === "full" ? "#2F5A1E" : "#C89F45"}">
+              ${data.paymentType === "full" ? "FULL PAYMENT" : "RESERVATION FEE ONLY"}
+            </td>
           </tr>
         </table>
       </div>

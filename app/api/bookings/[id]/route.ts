@@ -37,6 +37,9 @@ export async function GET(
     source: data.source,
     grossAmount: Number(data.gross_amount),
     notes: data.notes,
+    proofPath: data.proof_path ?? null,
+    paymentType: data.payment_type ?? "reservation",
+    amountPaid: Number(data.amount_paid ?? 0),
   });
 }
 

@@ -61,6 +61,7 @@ function BookPageInner() {
   const [requests, setRequests] = useState("");
   const [guestList, setGuestList] = useState<string[]>([""]);
 
+  const [paymentType, setPaymentType] = useState<"reservation" | "full">("reservation");
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [proofPreview, setProofPreview] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -142,6 +143,8 @@ function BookPageInner() {
           notes: requests || undefined,
           proofPath: proofPath || undefined,
           guestList: guestList.filter((g) => g.trim()),
+          paymentType,
+          amountPaid: selectedPrice.total,
         }),
       });
 
@@ -370,10 +373,60 @@ function BookPageInner() {
             <h2 className="book-title">Send payment &amp; upload proof</h2>
 
             <div className="panel" style={{ marginBottom: "1rem" }}>
+              <h2>Payment Type</h2>
+              <div className="form-body">
+                <div style={{ display: "flex", gap: "0.75rem", marginBottom: "0.5rem" }}>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentType("reservation")}
+                    style={{
+                      flex: 1,
+                      padding: "1rem",
+                      border: paymentType === "reservation" ? "2px solid var(--accent)" : "2px solid var(--line)",
+                      borderRadius: "8px",
+                      background: paymentType === "reservation" ? "color-mix(in srgb, var(--accent) 8%, transparent)" : "var(--surface)",
+                      cursor: "pointer",
+                      textAlign: "center",
+                    }}
+                  >
+                    <strong style={{ display: "block", fontSize: "0.9rem", marginBottom: "0.25rem" }}>Reservation Fee</strong>
+                    <span style={{ fontSize: "0.78rem", color: "var(--text-3)" }}>Pay partial now, balance on or before arrival</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentType("full")}
+                    style={{
+                      flex: 1,
+                      padding: "1rem",
+                      border: paymentType === "full" ? "2px solid var(--accent)" : "2px solid var(--line)",
+                      borderRadius: "8px",
+                      background: paymentType === "full" ? "color-mix(in srgb, var(--accent) 8%, transparent)" : "var(--surface)",
+                      cursor: "pointer",
+                      textAlign: "center",
+                    }}
+                  >
+                    <strong style={{ display: "block", fontSize: "0.9rem", marginBottom: "0.25rem" }}>Full Payment</strong>
+                    <span style={{ fontSize: "0.78rem", color: "var(--text-3)" }}>Pay total amount now</span>
+                  </button>
+                </div>
+                {paymentType === "reservation" && (
+                  <div style={{ padding: "0.75rem", background: "color-mix(in srgb, var(--accent) 6%, transparent)", borderRadius: "8px", borderLeft: "3px solid var(--accent)" }}>
+                    <p style={{ fontSize: "0.82rem", color: "var(--text-2)", margin: 0 }}>
+                      Send the reservation fee now. Your remaining balance of the total <strong>{formatPHP(selectedPrice.total)}</strong> must be settled on or before your arrival date.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="panel" style={{ marginBottom: "1rem" }}>
               <h2>Payment Channels</h2>
               <div className="form-body">
                 <p style={{ fontSize: "0.85rem", color: "var(--text-2)", margin: "0 0 1rem" }}>
-                  Send <strong>{formatPHP(selectedPrice.total)}</strong> to any of the channels below, then upload a screenshot of your payment.
+                  {paymentType === "full"
+                    ? <>Send <strong>{formatPHP(selectedPrice.total)}</strong> to any of the channels below, then upload a screenshot of your payment.</>
+                    : <>Send your reservation fee to any of the channels below, then upload a screenshot of your payment.</>
+                  }
                 </p>
 
                 {paymentAccounts.length > 0 ? (

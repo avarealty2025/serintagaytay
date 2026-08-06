@@ -125,6 +125,9 @@ export interface DbBooking {
   source: BookingSource | null;
   grossAmount: number;
   notes: string | null;
+  proofPath: string | null;
+  paymentType: "reservation" | "full";
+  amountPaid: number;
   createdAt: string;
 }
 
@@ -146,6 +149,9 @@ export async function getBookings(): Promise<{ bookings: DbBooking[]; problems: 
         source: b.source,
         grossAmount: 0,
         notes: null,
+        proofPath: null,
+        paymentType: "reservation" as const,
+        amountPaid: 0,
         createdAt: "",
       })),
       problems: sheet.problems,
@@ -168,7 +174,7 @@ export async function getBookings(): Promise<{ bookings: DbBooking[]; problems: 
           id: b.id, unitId: b.unitId, checkIn: b.checkIn, checkOut: b.checkOut,
           status: b.status, guest: b.guest, guestEmail: "", guestPhone: "",
           guests: b.guests, guestList: [], source: b.source,
-          grossAmount: 0, notes: null, createdAt: "",
+          grossAmount: 0, notes: null, proofPath: null, paymentType: "reservation" as const, amountPaid: 0, createdAt: "",
         })),
         problems: sheet.problems,
       };
@@ -191,6 +197,9 @@ export async function getBookings(): Promise<{ bookings: DbBooking[]; problems: 
           source: row.source as BookingSource,
           grossAmount: Number(row.gross_amount),
           notes: row.notes,
+          proofPath: row.proof_path ?? null,
+          paymentType: (row.payment_type ?? "reservation") as "reservation" | "full",
+          amountPaid: Number(row.amount_paid ?? 0),
           createdAt: row.created_at,
         };
       }),
@@ -203,7 +212,7 @@ export async function getBookings(): Promise<{ bookings: DbBooking[]; problems: 
         id: b.id, unitId: b.unitId, checkIn: b.checkIn, checkOut: b.checkOut,
         status: b.status, guest: b.guest, guestEmail: "", guestPhone: "",
         guests: b.guests, guestList: [], source: b.source,
-        grossAmount: 0, notes: null, createdAt: "",
+        grossAmount: 0, notes: null, proofPath: null, paymentType: "reservation" as const, amountPaid: 0, createdAt: "",
       })),
       problems: sheet.problems,
     };
@@ -223,6 +232,8 @@ export async function createBooking(data: {
   notes?: string;
   proofPath?: string;
   guestList?: string[];
+  paymentType?: "reservation" | "full";
+  amountPaid?: number;
 }): Promise<{ id: string | null; error: string | null }> {
   if (!isSupabaseConfigured) {
     return { id: `local-${Date.now()}`, error: null };
@@ -263,6 +274,8 @@ export async function createBooking(data: {
       notes: data.notes || null,
       proof_path: data.proofPath || null,
       guest_list: data.guestList?.length ? data.guestList : [],
+      payment_type: data.paymentType || "reservation",
+      amount_paid: data.amountPaid || 0,
     })
     .select("id")
     .single();
@@ -285,6 +298,8 @@ export async function updateBooking(
     guestName: string;
     guestEmail: string;
     guestPhone: string;
+    paymentType: string;
+    amountPaid: number;
   }>,
 ): Promise<{ error: string | null }> {
   if (!isSupabaseConfigured) return { error: "Supabase not configured" };
@@ -299,6 +314,8 @@ export async function updateBooking(
   if (data.grossAmount !== undefined) bookingUpdate.gross_amount = data.grossAmount;
   if (data.notes !== undefined) bookingUpdate.notes = data.notes || null;
   if (data.status !== undefined) bookingUpdate.status = data.status;
+  if (data.paymentType !== undefined) bookingUpdate.payment_type = data.paymentType;
+  if (data.amountPaid !== undefined) bookingUpdate.amount_paid = data.amountPaid;
   bookingUpdate.updated_at = new Date().toISOString();
 
   if (Object.keys(bookingUpdate).length > 1) {

@@ -120,6 +120,8 @@ export default async function BookingsPage({
                 <th>Pax</th>
                 <th>Source</th>
                 <th className="tar">Amount</th>
+                <th>Payment</th>
+                <th>Proof</th>
                 <th>Status</th>
                 <th></th>
               </tr>
@@ -160,6 +162,22 @@ export default async function BookingsPage({
                       </span>
                     </td>
                     <td className="tar mono">{amount || "—"}</td>
+                    <td>
+                      <span style={{
+                        fontSize: "0.72rem",
+                        fontWeight: 600,
+                        color: b.paymentType === "full" ? "var(--good)" : "var(--warn, #C89F45)",
+                      }}>
+                        {b.paymentType === "full" ? "Full" : "Reservation"}
+                      </span>
+                    </td>
+                    <td>
+                      {b.proofPath ? (
+                        <span style={{ color: "var(--good)", fontWeight: 600, fontSize: "0.75rem" }}>Uploaded</span>
+                      ) : (
+                        <span style={{ color: "var(--text-3)", fontSize: "0.75rem" }}>None</span>
+                      )}
+                    </td>
                     <td><ConfirmBtn bookingId={b.id} status={b.status} /></td>
                     <td style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
                       <Link
