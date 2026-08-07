@@ -62,7 +62,7 @@ export function Footer() {
           </p>
           <div className="lux-footer-social">
             <a
-              href="https://facebook.com"
+              href="https://www.facebook.com/SerinTagaytayStaycation"
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Facebook"
