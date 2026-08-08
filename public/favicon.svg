@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+  <rect width="32" height="32" rx="6" fill="#2f5a1e"/>
+  <text x="16" y="15.424" text-anchor="middle" dominant-baseline="central"
+        font-family="Georgia, serif" font-weight="700"
+        font-size="13" fill="#c89f45">S</text>
+  <text x="16" y="24.64" text-anchor="middle" dominant-baseline="central"
+        font-family="Arial, sans-serif" font-weight="500"
+        font-size="3" fill="#faf8f4" letter-spacing="0">TAGAYTAY</text>
+</svg>

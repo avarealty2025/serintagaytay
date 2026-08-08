@@ -1,7 +1,8 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Playfair_Display, Inter } from "next/font/google";
 import "./globals.css";
 import { MessengerBtn } from "./_components/messenger-btn.tsx";
+import { SWRegister } from "./_components/sw-register.tsx";
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
@@ -15,6 +16,12 @@ const inter = Inter({
   variable: "--font-sans",
   display: "swap",
 });
+
+export const viewport: Viewport = {
+  themeColor: "#2f5a1e",
+  width: "device-width",
+  initialScale: 1,
+};
 
 export const metadata: Metadata = {
   title: {
@@ -35,6 +42,21 @@ export const metadata: Metadata = {
     "2 bedroom staycation Tagaytay",
     "vacation rental Tagaytay",
   ],
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Serin Tagaytay",
+  },
+  icons: {
+    icon: [
+      { url: "/favicon.png", sizes: "32x32", type: "image/png" },
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+    ],
+    apple: [
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+    ],
+  },
   openGraph: {
     title: "Serin Tagaytay Staycation — Premium Staycations in the Heart of Tagaytay",
     description:
@@ -58,6 +80,7 @@ export default function RootLayout({
       <body>
         {children}
         <MessengerBtn />
+        <SWRegister />
       </body>
     </html>
   );
