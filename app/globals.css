@@ -1320,15 +1320,14 @@ a.btn {
 .book-unit {
   background: var(--surface);
   border: 2px solid var(--line);
-  padding: 0.9rem;
-  cursor: pointer;
+  border-radius: var(--radius);
+  overflow: hidden;
   text-align: left;
   font-family: var(--sans);
   color: var(--text);
-  transition: border-color 0.15s;
+  transition: border-color 0.15s, box-shadow 0.15s;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
 }
 .book-unit:hover {
   border-color: var(--accent);
@@ -1337,6 +1336,48 @@ a.btn {
   border-color: var(--accent);
   background: color-mix(in srgb, var(--accent) 6%, var(--surface));
   box-shadow: 0 0 0 1px var(--accent);
+}
+.bu-cover {
+  width: 100%;
+  height: 160px;
+  overflow: hidden;
+  cursor: pointer;
+}
+.bu-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s;
+}
+.book-unit:hover .bu-cover img {
+  transform: scale(1.05);
+}
+.bu-body {
+  background: none;
+  border: none;
+  padding: 0.75rem 0.9rem;
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--sans);
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  flex: 1;
+}
+.bu-details-link {
+  display: block;
+  text-align: center;
+  padding: 0.5rem 0.9rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--accent);
+  text-decoration: none;
+  border-top: 1px solid var(--line-soft);
+  transition: background 0.15s;
+}
+.bu-details-link:hover {
+  background: var(--accent-soft);
 }
 .bu-head {
   display: flex;

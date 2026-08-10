@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Mark } from "../mark.tsx";
 import { Footer } from "../footer.tsx";
 import { UNITS, TAAL_VIEW_CODES } from "../../src/data/units.ts";
+import { getUnitCoverThumb } from "../../src/data/unit-photos.ts";
 import {
   quote,
   formatPHP,
@@ -270,24 +271,41 @@ function BookPageInner() {
               {bookable.map(({ unit, price }) => {
                 const taal = TAAL_VIEW_CODES.has(unit.code);
                 const selected = unitId === unit.id;
+                const cover = getUnitCoverThumb(unit.id);
                 return (
-                  <button key={unit.id} className={`book-unit ${selected ? "selected" : ""}`} onClick={() => setUnitId(unit.id)} type="button">
-                    <div className="bu-head">
-                      <span className="bu-code">{unit.tower}-{unit.code} {unit.buildingId === "west" ? "West" : "East"}</span>
-                      {unit.name && <span className="bu-name">{unit.name}</span>}
-                    </div>
-                    <div className="bu-facts">
-                      <span>{TYPE_LABEL[unit.type]}</span>
-                      <span>Sleeps {unit.maxGuests}</span>
-                      <span>{taal ? "Taal view" : "Ridge side"}</span>
-                    </div>
-                    {price && !price.requiresManualQuote && (
-                      <div className="bu-price">
-                        <span className="bu-total">{formatPHP(price.total)}</span>
-                        <span className="bu-per">{nights} {nights === 1 ? "night" : "nights"}</span>
+                  <div key={unit.id} className={`book-unit ${selected ? "selected" : ""}`}>
+                    {cover && (
+                      <div className="bu-cover" onClick={() => setUnitId(unit.id)}>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={cover} alt={unit.name ?? `${unit.tower}-${unit.code}`} />
                       </div>
                     )}
-                  </button>
+                    <button className="bu-body" onClick={() => setUnitId(unit.id)} type="button">
+                      <div className="bu-head">
+                        <span className="bu-code">{unit.tower}-{unit.code} {unit.buildingId === "west" ? "West" : "East"}</span>
+                        {unit.name && <span className="bu-name">{unit.name}</span>}
+                      </div>
+                      <div className="bu-facts">
+                        <span>{TYPE_LABEL[unit.type]}</span>
+                        <span>Sleeps {unit.maxGuests}</span>
+                        <span>{taal ? "Taal view" : "Ridge side"}</span>
+                      </div>
+                      {price && !price.requiresManualQuote && (
+                        <div className="bu-price">
+                          <span className="bu-total">{formatPHP(price.total)}</span>
+                          <span className="bu-per">{nights} {nights === 1 ? "night" : "nights"}</span>
+                        </div>
+                      )}
+                    </button>
+                    <Link
+                      href={`/units/${unit.id}`}
+                      target="_blank"
+                      className="bu-details-link"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      View details &amp; photos
+                    </Link>
+                  </div>
                 );
               })}
             </div>
