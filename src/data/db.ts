@@ -471,6 +471,136 @@ export async function deleteExpense(id: string): Promise<{ error: string | null 
 }
 
 // ---------------------------------------------------------------------------
+// Guests (CRM)
+// ---------------------------------------------------------------------------
+
+export interface DbGuest {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  notes: string | null;
+  createdAt: string;
+  totalBookings: number;
+  totalRevenue: number;
+  lastCheckIn: string | null;
+  firstCheckIn: string | null;
+}
+
+export async function getGuests(): Promise<DbGuest[]> {
+  if (!isSupabaseConfigured) return [];
+  try {
+    const sb = getSupabaseAdmin();
+    const [{ data: guests }, { data: bookings }] = await Promise.all([
+      sb.from("guests").select("*").is("deleted_at", null).order("created_at", { ascending: false }),
+      sb.from("bookings").select("guest_id, gross_amount, check_in, status").is("deleted_at", null),
+    ]);
+    if (!guests) return [];
+
+    const statsMap = new Map<string, { count: number; revenue: number; first: string | null; last: string | null }>();
+    for (const b of bookings ?? []) {
+      if (!b.guest_id || b.status === "cancelled") continue;
+      const s = statsMap.get(b.guest_id) ?? { count: 0, revenue: 0, first: null, last: null };
+      s.count++;
+      s.revenue += Number(b.gross_amount ?? 0);
+      if (!s.first || b.check_in < s.first) s.first = b.check_in;
+      if (!s.last || b.check_in > s.last) s.last = b.check_in;
+      statsMap.set(b.guest_id, s);
+    }
+
+    return guests.map((g) => {
+      const s = statsMap.get(g.id);
+      return {
+        id: g.id,
+        name: g.name,
+        email: g.email,
+        phone: g.phone,
+        notes: g.notes,
+        createdAt: g.created_at,
+        totalBookings: s?.count ?? 0,
+        totalRevenue: s?.revenue ?? 0,
+        lastCheckIn: s?.last ?? null,
+        firstCheckIn: s?.first ?? null,
+      };
+    });
+  } catch {
+    return [];
+  }
+}
+
+export interface DbGuestDetail extends DbGuest {
+  bookings: DbBooking[];
+}
+
+export async function getGuest(id: string): Promise<DbGuestDetail | null> {
+  if (!isSupabaseConfigured) return null;
+  try {
+    const sb = getSupabaseAdmin();
+    const idMap = await getUnitIdMap();
+    const [{ data: guest }, { data: bookings }] = await Promise.all([
+      sb.from("guests").select("*").eq("id", id).is("deleted_at", null).single(),
+      sb.from("bookings").select("*").eq("guest_id", id).is("deleted_at", null).order("check_in", { ascending: false }),
+    ]);
+    if (!guest) return null;
+
+    const mapped: DbBooking[] = (bookings ?? []).map((row) => ({
+      id: row.id,
+      unitId: idMap.get(row.unit_id) ?? row.unit_id,
+      checkIn: row.check_in,
+      checkOut: row.check_out,
+      status: row.status as BookingStatus,
+      guest: guest.name,
+      guestEmail: guest.email ?? "",
+      guestPhone: guest.phone ?? "",
+      guests: row.guests_count,
+      guestList: row.guest_list ?? [],
+      source: row.source as BookingSource,
+      grossAmount: Number(row.gross_amount),
+      notes: row.notes,
+      proofPath: row.proof_path ?? null,
+      paymentType: (row.payment_type ?? "reservation") as "reservation" | "full",
+      amountPaid: Number(row.amount_paid ?? 0),
+      promoCodeId: row.promo_code_id ?? null,
+      discountAmount: Number(row.discount_amount ?? 0),
+      createdAt: row.created_at,
+    }));
+
+    const active = mapped.filter((b) => b.status !== "cancelled");
+    return {
+      id: guest.id,
+      name: guest.name,
+      email: guest.email,
+      phone: guest.phone,
+      notes: guest.notes,
+      createdAt: guest.created_at,
+      totalBookings: active.length,
+      totalRevenue: active.reduce((sum, b) => sum + b.grossAmount, 0),
+      lastCheckIn: active[0]?.checkIn ?? null,
+      firstCheckIn: active.at(-1)?.checkIn ?? null,
+      bookings: mapped,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function updateGuest(
+  id: string,
+  data: Partial<{ name: string; email: string; phone: string; notes: string }>,
+): Promise<{ error: string | null }> {
+  if (!isSupabaseConfigured) return { error: "Supabase not configured" };
+  const sb = getSupabaseAdmin();
+  const update: Record<string, unknown> = {};
+  if (data.name !== undefined) update.name = data.name;
+  if (data.email !== undefined) update.email = data.email || null;
+  if (data.phone !== undefined) update.phone = data.phone || null;
+  if (data.notes !== undefined) update.notes = data.notes || null;
+  const { error } = await sb.from("guests").update(update).eq("id", id);
+  if (error) return { error: error.message };
+  return { error: null };
+}
+
+// ---------------------------------------------------------------------------
 // Settings
 // ---------------------------------------------------------------------------
 
