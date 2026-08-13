@@ -4,10 +4,8 @@ import { Footer } from "./footer.tsx";
 import { Testimonials } from "./testimonials.tsx";
 import { FAQ } from "./_components/faq.tsx";
 import { UNITS, TAAL_VIEW_CODES } from "../src/data/units.ts";
-import {
-  getUnitCoverWithDb,
-  hasPhotos,
-} from "../src/data/unit-photos.ts";
+import { hasPhotos } from "../src/data/unit-photos.ts";
+import { getUnitCoverWithDb } from "../src/data/unit-photos-server.ts";
 import { getBookings, getDbSettings } from "../src/data/db.ts";
 import { isAvailable } from "../src/lib/availability.ts";
 import { formatPHP, quote, PricingError } from "../src/lib/pricing.ts";

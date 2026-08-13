@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { Mark, RidgePlate } from "../../mark.tsx";
 import { Footer } from "../../footer.tsx";
 import { UNITS, TAAL_VIEW_CODES } from "../../../src/data/units.ts";
-import { getUnitPhotosWithDb } from "../../../src/data/unit-photos.ts";
+import { getUnitPhotosWithDb } from "../../../src/data/unit-photos-server.ts";
 import { formatPHP } from "../../../src/lib/pricing.ts";
 import { PhotoGallery } from "./photo-gallery.tsx";
 

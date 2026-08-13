@@ -230,48 +230,6 @@ export function getUnitPhotos(unitId: string): UnitPhoto[] {
   return ids.map((id) => ({ url: driveUrl(id), thumb: driveThumb(id) }));
 }
 
-/** Server-side: check DB first, fall back to hardcoded Drive photos */
-export async function getUnitPhotosWithDb(unitId: string): Promise<UnitPhoto[]> {
-  try {
-    const { getDbUnitPhotos } = await import("./db.ts");
-    const dbPhotos = await getDbUnitPhotos(unitId);
-    if (dbPhotos && dbPhotos.length > 0) {
-      return dbPhotos.map((p) => ({
-        type: p.type || "photo",
-        url: p.url,
-        thumb: p.thumb,
-        youtubeId: p.youtubeId,
-      }));
-    }
-  } catch {}
-  return getUnitPhotos(unitId);
-}
-
-/** Server-side: check DB first for cover photo */
-export async function getUnitCoverWithDb(unitId: string): Promise<string | null> {
-  try {
-    const { getDbUnitPhotos } = await import("./db.ts");
-    const dbPhotos = await getDbUnitPhotos(unitId);
-    if (dbPhotos && dbPhotos.length > 0) {
-      const cover = dbPhotos.find((p) => p.isCover) ?? dbPhotos[0];
-      return cover!.url;
-    }
-  } catch {}
-  return getUnitCover(unitId);
-}
-
-export async function getUnitCoverThumbWithDb(unitId: string): Promise<string | null> {
-  try {
-    const { getDbUnitPhotos } = await import("./db.ts");
-    const dbPhotos = await getDbUnitPhotos(unitId);
-    if (dbPhotos && dbPhotos.length > 0) {
-      const cover = dbPhotos.find((p) => p.isCover) ?? dbPhotos[0];
-      return cover!.thumb;
-    }
-  } catch {}
-  return getUnitCoverThumb(unitId);
-}
-
 export function getUnitCover(unitId: string): string | null {
   const ids = RAW[unitId];
   if (!ids || ids.length === 0) return null;
