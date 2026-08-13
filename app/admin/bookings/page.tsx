@@ -11,8 +11,11 @@ export const dynamic = "force-dynamic";
 const SOURCE_LABEL: Record<string, string> = {
   direct: "Direct",
   airbnb: "Airbnb",
+  "booking.com": "Booking.com",
   agoda: "Agoda",
   facebook: "Facebook",
+  manual: "Manual",
+  block: "Blocked",
 };
 
 export default async function BookingsPage({

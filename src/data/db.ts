@@ -634,6 +634,38 @@ export async function saveDbSettings(
 }
 
 // ---------------------------------------------------------------------------
+// Unit Photos (stored in settings as unit_photos:{unitId})
+// ---------------------------------------------------------------------------
+
+export interface DbUnitPhoto {
+  type?: "photo" | "video" | "youtube";
+  driveId?: string;
+  storagePath?: string;
+  url: string;
+  thumb: string;
+  caption: string;
+  isCover: boolean;
+  videoUrl?: string;
+  youtubeId?: string;
+}
+
+export async function getDbUnitPhotos(unitId: string): Promise<DbUnitPhoto[] | null> {
+  if (!isSupabaseConfigured) return null;
+  try {
+    const sb = getSupabaseAdmin();
+    const { data, error } = await sb
+      .from("settings")
+      .select("value")
+      .eq("key", `unit_photos:${unitId}`)
+      .maybeSingle();
+    if (error || !data) return null;
+    return data.value as DbUnitPhoto[];
+  } catch {
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Audit log
 // ---------------------------------------------------------------------------
 

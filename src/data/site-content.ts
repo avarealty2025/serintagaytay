@@ -5,14 +5,34 @@ export interface SiteContent {
     subheadline: string;
     primaryCta: string;
     secondaryCta: string;
+    photoUrl?: string;
+    videoUrl?: string;
+    youtubeId?: string;
+    mediaType?: "photo" | "video" | "youtube";
   };
   whySection: {
     heading: string;
-    cards: { title: string; description: string; photoId: string }[];
+    cards: {
+      title: string;
+      description: string;
+      photoId: string;
+      photoUrl?: string;
+      videoUrl?: string;
+      youtubeId?: string;
+      mediaType?: "photo" | "video" | "youtube";
+    }[];
   };
   amenities: {
     heading: string;
-    items: { icon: string; title: string; description: string }[];
+    items: {
+      icon: string;
+      title: string;
+      description: string;
+      photoUrl?: string;
+      videoUrl?: string;
+      youtubeId?: string;
+      mediaType?: "photo" | "video" | "youtube";
+    }[];
   };
   attractions: {
     heading: string;
@@ -22,6 +42,10 @@ export interface SiteContent {
       distance: string;
       travelTime: string;
       photoId: string;
+      photoUrl?: string;
+      videoUrl?: string;
+      youtubeId?: string;
+      mediaType?: "photo" | "video" | "youtube";
     }[];
   };
   faq: {

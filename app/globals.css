@@ -25,6 +25,7 @@
 
   --ch-direct: #2f5a1e;
   --ch-airbnb: #c4614a;
+  --ch-booking: #003580;
   --ch-agoda: #4a6fa5;
   --ch-fb: #8a5aa0;
   --ch-block: #8a8f7c;
@@ -61,6 +62,7 @@
     --crit: #d08871;
     --ch-direct: #7fb05f;
     --ch-airbnb: #d97d64;
+    --ch-booking: #4a7ec0;
     --ch-agoda: #7c9bd1;
     --ch-fb: #b085c4;
     --ch-block: #7e8672;
@@ -865,6 +867,9 @@ h1.today {
 .bar.airbnb {
   background: var(--ch-airbnb);
 }
+.bar.booking\.com {
+  background: var(--ch-booking);
+}
 .bar.agoda {
   background: var(--ch-agoda);
 }
@@ -1028,8 +1033,10 @@ code {
 }
 .src-pill.direct { background: var(--ch-direct); }
 .src-pill.airbnb { background: var(--ch-airbnb); }
+.src-pill.booking\.com { background: var(--ch-booking); }
 .src-pill.agoda { background: var(--ch-agoda); }
 .src-pill.facebook { background: var(--ch-fb); }
+.src-pill.manual { background: var(--ch-block); }
 .src-pill.unknown { background: var(--ch-block); }
 
 /* -- filter bar --------------------------------------------------------- */
@@ -2233,6 +2240,38 @@ a.btn {
   height: 100%;
   object-fit: cover;
 }
+.gallery-video-frame {
+  width: 100%;
+  height: 100%;
+  border: none;
+  border-radius: var(--radius-sm);
+}
+.thumb-play {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #fff;
+  font-size: 1.1rem;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+}
+.media-type-badge {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.4rem;
+  font-size: 0.55rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.15rem 0.4rem;
+  border-radius: 2px;
+  pointer-events: none;
+}
+.video-badge {
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+}
 
 .lightbox {
   position: fixed;
@@ -3167,9 +3206,26 @@ a.btn {
 .lux-attraction-card {
   background: var(--surface);
   border-radius: var(--radius);
-  padding: 1.75rem;
   border: 1px solid var(--line-soft);
   transition: transform 0.2s, box-shadow 0.2s;
+  overflow: hidden;
+}
+.lux-attraction-card .lux-attraction-info {
+  padding: 1.75rem;
+}
+.lux-attraction-img-wrap {
+  width: 100%;
+  height: 160px;
+  overflow: hidden;
+}
+.lux-attraction-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s;
+}
+.lux-attraction-card:hover .lux-attraction-img {
+  transform: scale(1.05);
 }
 
 .lux-attraction-card:hover {
@@ -3720,4 +3776,173 @@ a.btn {
   .crm-contact-list {
     justify-content: center;
   }
+}
+
+/* ── My Booking (Guest Lookup) ── */
+.mb-form {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+}
+.mb-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+.mb-field label {
+  display: block;
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+}
+.mb-field input {
+  width: 100%;
+  padding: 0.65rem 0.75rem;
+  font-size: 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs);
+  background: var(--ground);
+}
+.mb-notice {
+  margin-top: 1.5rem;
+  padding: 1rem 1.25rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+.mb-notice-err {
+  background: color-mix(in srgb, var(--crit) 10%, transparent);
+  border-left: 3px solid var(--crit);
+  color: var(--crit);
+}
+.mb-notice-empty {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--text-2);
+}
+.mb-booking-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 1rem 1.25rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  text-align: left;
+  margin-bottom: 0.5rem;
+  transition: border-color 0.2s;
+}
+.mb-booking-card:hover {
+  border-color: var(--accent);
+}
+.mb-dates {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--text-3);
+  margin-top: 0.15rem;
+}
+.mb-status,
+.mb-status-lg {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 20px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: var(--surface-2);
+  color: var(--text-2);
+}
+.mb-status-lg {
+  font-size: 0.75rem;
+  padding: 0.3rem 0.8rem;
+}
+.status-good { background: #e8f5e3; color: #2f5a1e; }
+.status-warn { background: #fff3e0; color: #a67c24; }
+.status-crit { background: #fdecea; color: #a4402c; }
+.mb-detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
+}
+.mb-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+.mb-info-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 1.25rem;
+}
+.mb-info-card h3 {
+  font-size: 0.65rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin: 0 0 0.75rem;
+}
+.mb-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.4rem 0;
+  font-size: 0.85rem;
+}
+.mb-info-row span { color: var(--text-2); }
+.mb-checkin-box,
+.mb-pending-box {
+  margin-top: 1.5rem;
+  padding: 1.5rem;
+  border-radius: var(--radius-sm);
+}
+.mb-checkin-box {
+  background: color-mix(in srgb, var(--good) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--good) 25%, transparent);
+}
+.mb-checkin-box h3 {
+  color: var(--good);
+  font-size: 0.9rem;
+  margin: 0 0 0.75rem;
+}
+.mb-checkin-box h4 {
+  font-size: 0.8rem;
+  margin: 1rem 0 0.5rem;
+  color: var(--text);
+}
+.mb-checkin-box ul,
+.mb-pending-box ul {
+  margin: 0;
+  padding-left: 1.25rem;
+  font-size: 0.85rem;
+  line-height: 1.8;
+  color: var(--text-2);
+}
+.mb-pending-box {
+  background: color-mix(in srgb, var(--warn) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--warn) 25%, transparent);
+}
+.mb-pending-box h3 {
+  color: var(--warn);
+  font-size: 0.9rem;
+  margin: 0 0 0.5rem;
+}
+.mb-pending-box p {
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: var(--text-2);
+  margin: 0;
+}
+@media (max-width: 600px) {
+  .mb-form-row { grid-template-columns: 1fr; }
+  .mb-grid { grid-template-columns: 1fr; }
+  .mb-detail-header { flex-direction: column; gap: 0.5rem; }
 }

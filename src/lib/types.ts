@@ -4,6 +4,7 @@ export type BookingSource =
   | "direct"
   | "airbnb"
   | "agoda"
+  | "booking.com"
   | "facebook"
   | "manual"
   | "block";

@@ -1,10 +1,215 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { SiteContent } from "../../../src/data/site-content.ts";
 
 function updateAt<T>(arr: T[], idx: number, patch: Partial<T>): T[] {
   return arr.map((item, j) => (j === idx ? { ...item, ...patch } : item));
+}
+
+function extractYouTubeId(url: string): string | null {
+  const m =
+    url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/) ??
+    url.match(/^([a-zA-Z0-9_-]{11})$/);
+  return m?.[1] ?? null;
+}
+
+function MediaUpload({
+  photoUrl,
+  videoUrl,
+  youtubeId,
+  mediaType,
+  label,
+  onUpdate,
+}: {
+  photoUrl?: string;
+  videoUrl?: string;
+  youtubeId?: string;
+  mediaType?: "photo" | "video" | "youtube";
+  label: string;
+  onUpdate: (patch: {
+    photoUrl?: string;
+    videoUrl?: string;
+    youtubeId?: string;
+    mediaType?: "photo" | "video" | "youtube";
+  }) => void;
+}) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [ytInput, setYtInput] = useState("");
+  const [showYt, setShowYt] = useState(false);
+
+  const hasMedia = photoUrl || videoUrl || youtubeId;
+  const currentType = mediaType || (videoUrl ? "video" : youtubeId ? "youtube" : "photo");
+
+  async function handleFile(file: File) {
+    const isVideo = file.type.startsWith("video/");
+    const isImage = file.type.startsWith("image/");
+    if (!isVideo && !isImage) return;
+    setUploading(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("section", "experience");
+      const res = await fetch("/api/site-content/upload", { method: "POST", body: form });
+      if (!res.ok) {
+        const err = await res.json();
+        alert(`Upload failed: ${err.error}`);
+        return;
+      }
+      const data = await res.json();
+      if (isVideo) {
+        onUpdate({ videoUrl: data.url, photoUrl: undefined, youtubeId: undefined, mediaType: "video" });
+      } else {
+        onUpdate({ photoUrl: data.url, videoUrl: undefined, youtubeId: undefined, mediaType: "photo" });
+      }
+    } catch {
+      alert("Upload error");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  function addYouTube() {
+    const id = extractYouTubeId(ytInput.trim());
+    if (!id) {
+      alert("Invalid YouTube URL");
+      return;
+    }
+    onUpdate({
+      youtubeId: id,
+      photoUrl: undefined,
+      videoUrl: undefined,
+      mediaType: "youtube",
+    });
+    setYtInput("");
+    setShowYt(false);
+  }
+
+  function clearMedia() {
+    onUpdate({ photoUrl: undefined, videoUrl: undefined, youtubeId: undefined, mediaType: undefined });
+  }
+
+  return (
+    <div className="field" style={{ marginTop: "0.5rem" }}>
+      <label>{label}</label>
+      <div style={{ display: "flex", gap: "0.75rem", alignItems: "flex-start" }}>
+        {hasMedia && (
+          <div style={{ position: "relative", flexShrink: 0 }}>
+            {currentType === "youtube" && youtubeId ? (
+              <div style={{ position: "relative" }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={`https://img.youtube.com/vi/${youtubeId}/mqdefault.jpg`}
+                  alt="YouTube"
+                  style={{
+                    width: 100,
+                    height: 64,
+                    objectFit: "cover",
+                    borderRadius: "var(--radius-xs)",
+                    border: "1px solid var(--line-soft)",
+                  }}
+                />
+                <span style={{
+                  position: "absolute", bottom: 2, right: 2,
+                  fontSize: "0.5rem", fontWeight: 700, textTransform: "uppercase",
+                  background: "rgba(0,0,0,0.65)", color: "#fff",
+                  padding: "1px 4px", borderRadius: 2,
+                }}>YouTube</span>
+              </div>
+            ) : currentType === "video" && videoUrl ? (
+              <div style={{ position: "relative" }}>
+                <video
+                  src={videoUrl}
+                  muted
+                  preload="metadata"
+                  style={{
+                    width: 100,
+                    height: 64,
+                    objectFit: "cover",
+                    borderRadius: "var(--radius-xs)",
+                    border: "1px solid var(--line-soft)",
+                  }}
+                />
+                <span style={{
+                  position: "absolute", bottom: 2, right: 2,
+                  fontSize: "0.5rem", fontWeight: 700, textTransform: "uppercase",
+                  background: "rgba(0,0,0,0.65)", color: "#fff",
+                  padding: "1px 4px", borderRadius: 2,
+                }}>Video</span>
+              </div>
+            ) : photoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={photoUrl}
+                alt="Current"
+                style={{
+                  width: 100,
+                  height: 64,
+                  objectFit: "cover",
+                  borderRadius: "var(--radius-xs)",
+                  border: "1px solid var(--line-soft)",
+                }}
+              />
+            ) : null}
+          </div>
+        )}
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*,video/*"
+            style={{ display: "none" }}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) handleFile(f);
+              e.target.value = "";
+            }}
+          />
+          <button
+            className="btn-outline btn-sm"
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            disabled={uploading}
+          >
+            {uploading ? "Uploading..." : hasMedia ? "Change Photo/Video" : "Upload Photo/Video"}
+          </button>
+          <button
+            className="btn-outline btn-sm"
+            type="button"
+            onClick={() => setShowYt(!showYt)}
+          >
+            {showYt ? "Cancel YouTube" : "Add YouTube Link"}
+          </button>
+          {hasMedia && (
+            <button
+              className="btn-outline btn-sm"
+              type="button"
+              style={{ color: "var(--crit)", borderColor: "var(--crit)" }}
+              onClick={clearMedia}
+            >
+              Remove
+            </button>
+          )}
+        </div>
+      </div>
+      {showYt && (
+        <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem", alignItems: "center" }}>
+          <input
+            type="url"
+            placeholder="Paste YouTube URL..."
+            value={ytInput}
+            onChange={(e) => setYtInput(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && addYouTube()}
+            style={{ flex: 1, fontSize: "0.85rem" }}
+          />
+          <button className="btn btn-sm" onClick={addYouTube} type="button">
+            Add
+          </button>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function SiteContentPage() {
@@ -179,6 +384,19 @@ export default function SiteContentPage() {
                 />
               </div>
             </div>
+            <MediaUpload
+              photoUrl={content.hero.photoUrl}
+              videoUrl={content.hero.videoUrl}
+              youtubeId={content.hero.youtubeId}
+              mediaType={content.hero.mediaType}
+              label="Hero Background Media"
+              onUpdate={(patch) =>
+                setContent({
+                  ...content,
+                  hero: { ...content.hero, ...patch },
+                })
+              }
+            />
           </div>
         </div>
       )}
@@ -246,6 +464,22 @@ export default function SiteContentPage() {
                     }
                   />
                 </div>
+                <MediaUpload
+                  photoUrl={card.photoUrl}
+                  videoUrl={card.videoUrl}
+                  youtubeId={card.youtubeId}
+                  mediaType={card.mediaType}
+                  label="Card Media"
+                  onUpdate={(patch) =>
+                    setContent({
+                      ...content,
+                      whySection: {
+                        ...content.whySection,
+                        cards: updateAt(content.whySection.cards, i, patch),
+                      },
+                    })
+                  }
+                />
               </div>
             ))}
           </div>
@@ -274,46 +508,62 @@ export default function SiteContentPage() {
               <div
                 key={i}
                 style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 2fr",
-                  gap: "0.75rem",
-                  padding: "0.75rem",
+                  padding: "1rem",
                   background: i % 2 === 0 ? "var(--surface-2)" : "transparent",
-                  borderRadius: "var(--radius-xs)",
+                  borderRadius: "var(--radius-sm)",
+                  marginTop: "0.5rem",
                 }}
               >
-                <div className="field">
-                  <label>Title</label>
-                  <input
-                    type="text"
-                    value={item.title}
-                    onChange={(e) =>
-                      setContent({
-                        ...content,
-                        amenities: {
-                          ...content.amenities,
-                          items: updateAt(content.amenities.items, i, { title: e.target.value }),
-                        },
-                      })
-                    }
-                  />
+                <div className="field-row">
+                  <div className="field">
+                    <label>Title</label>
+                    <input
+                      type="text"
+                      value={item.title}
+                      onChange={(e) =>
+                        setContent({
+                          ...content,
+                          amenities: {
+                            ...content.amenities,
+                            items: updateAt(content.amenities.items, i, { title: e.target.value }),
+                          },
+                        })
+                      }
+                    />
+                  </div>
+                  <div className="field">
+                    <label>Description</label>
+                    <input
+                      type="text"
+                      value={item.description}
+                      onChange={(e) =>
+                        setContent({
+                          ...content,
+                          amenities: {
+                            ...content.amenities,
+                            items: updateAt(content.amenities.items, i, { description: e.target.value }),
+                          },
+                        })
+                      }
+                    />
+                  </div>
                 </div>
-                <div className="field">
-                  <label>Description</label>
-                  <input
-                    type="text"
-                    value={item.description}
-                    onChange={(e) =>
-                      setContent({
-                        ...content,
-                        amenities: {
-                          ...content.amenities,
-                          items: updateAt(content.amenities.items, i, { description: e.target.value }),
-                        },
-                      })
-                    }
-                  />
-                </div>
+                <MediaUpload
+                  photoUrl={item.photoUrl}
+                  videoUrl={item.videoUrl}
+                  youtubeId={item.youtubeId}
+                  mediaType={item.mediaType}
+                  label="Amenity Media"
+                  onUpdate={(patch) =>
+                    setContent({
+                      ...content,
+                      amenities: {
+                        ...content.amenities,
+                        items: updateAt(content.amenities.items, i, patch),
+                      },
+                    })
+                  }
+                />
               </div>
             ))}
           </div>
@@ -414,6 +664,22 @@ export default function SiteContentPage() {
                     />
                   </div>
                 </div>
+                <MediaUpload
+                  photoUrl={item.photoUrl}
+                  videoUrl={item.videoUrl}
+                  youtubeId={item.youtubeId}
+                  mediaType={item.mediaType}
+                  label="Attraction Media"
+                  onUpdate={(patch) =>
+                    setContent({
+                      ...content,
+                      attractions: {
+                        ...content.attractions,
+                        items: updateAt(content.attractions.items, i, patch),
+                      },
+                    })
+                  }
+                />
               </div>
             ))}
           </div>

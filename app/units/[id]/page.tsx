@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { Mark, RidgePlate } from "../../mark.tsx";
 import { Footer } from "../../footer.tsx";
 import { UNITS, TAAL_VIEW_CODES } from "../../../src/data/units.ts";
-import { getUnitPhotos } from "../../../src/data/unit-photos.ts";
+import { getUnitPhotosWithDb } from "../../../src/data/unit-photos.ts";
 import { formatPHP } from "../../../src/lib/pricing.ts";
 import { PhotoGallery } from "./photo-gallery.tsx";
 
@@ -25,7 +25,7 @@ export default async function UnitDetailPage({
 
   const taal = TAAL_VIEW_CODES.has(unit.code);
   const building = unit.buildingId === "west" ? "Serin West" : "Serin East";
-  const photos = getUnitPhotos(unit.id);
+  const photos = await getUnitPhotosWithDb(unit.id);
   const similar = UNITS.filter(
     (u) => u.active && u.type === unit.type && u.id !== unit.id,
   ).slice(0, 3);

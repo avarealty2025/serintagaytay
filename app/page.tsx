@@ -5,9 +5,7 @@ import { Testimonials } from "./testimonials.tsx";
 import { FAQ } from "./_components/faq.tsx";
 import { UNITS, TAAL_VIEW_CODES } from "../src/data/units.ts";
 import {
-  getUnitCover,
-  getUnitCoverThumb,
-  getUnitPhotos,
+  getUnitCoverWithDb,
   hasPhotos,
 } from "../src/data/unit-photos.ts";
 import { getBookings, getDbSettings } from "../src/data/db.ts";
@@ -60,6 +58,12 @@ export default async function Home({
 
   const allUnits = UNITS.filter((u) => u.active);
 
+  const displayUnits = featuredUnits.length > 0 ? featuredUnits : allUnits.slice(0, 6);
+  const coverMap: Record<string, string | null> = {};
+  await Promise.all(displayUnits.map(async (u) => {
+    coverMap[u.id] = await getUnitCoverWithDb(u.id);
+  }));
+
   const heroPhotos = [
     "1VG31wyETnAhanJlnwjh17HJKssDEyN86",
     "1IRtoZbhiEJiamLMG1fVAhChKoIvpslhj",
@@ -88,6 +92,7 @@ export default async function Home({
             <Link href="#amenities">Amenities</Link>
             <Link href="#reviews">Reviews</Link>
             <Link href="/book">Book</Link>
+            <Link href="/my-booking">My Booking</Link>
             <Link href="/admin">Admin</Link>
           </nav>
         </div>
@@ -154,13 +159,16 @@ export default async function Home({
           </div>
           <div className="lux-why-grid">
             {content.whySection.cards.map((card, i) => {
-              const photoSrc = card.photoId
-                ? drivePhoto(card.photoId, 800)
-                : i === 0
-                  ? drivePhoto("1IP7j77477Wi_BmTv0U7rOXlyFw98ppu9", 800)
-                  : i === 1
-                    ? drivePhoto("1hIciOpX9KuSAOJ19XmbkGrE8rXp_KiJS", 800)
-                    : drivePhoto("1x5YXqMzeRkIo8vVEMW0SD4JWjzBeUavv", 800);
+              const defaultDriveIds = [
+                "1IP7j77477Wi_BmTv0U7rOXlyFw98ppu9",
+                "1hIciOpX9KuSAOJ19XmbkGrE8rXp_KiJS",
+                "1x5YXqMzeRkIo8vVEMW0SD4JWjzBeUavv",
+              ];
+              const photoSrc = card.photoUrl
+                ? card.photoUrl
+                : card.photoId
+                  ? drivePhoto(card.photoId, 800)
+                  : drivePhoto(defaultDriveIds[i] ?? defaultDriveIds[0]!, 800);
               return (
                 <div key={i} className="lux-why-card">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -188,9 +196,9 @@ export default async function Home({
             </p>
           </div>
           <div className="lux-suites-grid">
-            {(featuredUnits.length > 0 ? featuredUnits : allUnits.slice(0, 6)).map(
+            {displayUnits.map(
               (unit) => {
-                const cover = getUnitCover(unit.id);
+                const cover = coverMap[unit.id] ?? null;
                 const taal = TAAL_VIEW_CODES.has(unit.code);
                 const name = unit.name || `${unit.tower}-${unit.code}`;
                 const free = isAvailable(unit.id, checkIn, checkOut, bookings);
@@ -318,19 +326,32 @@ export default async function Home({
             </p>
           </div>
           <div className="lux-attractions-grid">
-            {content.attractions.items.map((item, i) => (
-              <div key={i} className="lux-attraction-card">
-                <div className="lux-attraction-info">
-                  <h3>{item.name}</h3>
-                  <p>{item.description}</p>
-                  <div className="lux-attraction-meta">
-                    <span>{item.distance}</span>
-                    <span className="lux-attraction-dot">&middot;</span>
-                    <span>{item.travelTime}</span>
+            {content.attractions.items.map((item, i) => {
+              const attrPhoto = item.photoUrl
+                ? item.photoUrl
+                : item.photoId
+                  ? drivePhoto(item.photoId, 600)
+                  : null;
+              return (
+                <div key={i} className="lux-attraction-card">
+                  {attrPhoto && (
+                    <div className="lux-attraction-img-wrap">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={attrPhoto} alt={item.name} className="lux-attraction-img" loading="lazy" />
+                    </div>
+                  )}
+                  <div className="lux-attraction-info">
+                    <h3>{item.name}</h3>
+                    <p>{item.description}</p>
+                    <div className="lux-attraction-meta">
+                      <span>{item.distance}</span>
+                      <span className="lux-attraction-dot">&middot;</span>
+                      <span>{item.travelTime}</span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </section>

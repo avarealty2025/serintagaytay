@@ -14,6 +14,7 @@ const TYPE_LABEL: Record<string, string> = {
 const SOURCES = [
   { value: "direct", label: "Direct" },
   { value: "airbnb", label: "Airbnb" },
+  { value: "booking.com", label: "Booking.com" },
   { value: "agoda", label: "Agoda" },
   { value: "facebook", label: "Facebook" },
   { value: "manual", label: "Manual" },

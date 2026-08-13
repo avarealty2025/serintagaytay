@@ -23,9 +23,11 @@ const GROUPS: { title: string; links: { href: string; label: string }[] }[] = [
     title: "Business",
     links: [
       { href: "/admin/reports", label: "Reports" },
+      { href: "/admin/invoices", label: "Invoices" },
       { href: "/admin/expenses", label: "Expenses" },
       { href: "/admin/reviews", label: "Reviews" },
       { href: "/admin/promo-codes", label: "Promo Codes" },
+      { href: "/admin/channels", label: "OTA Channels" },
     ],
   },
   {
