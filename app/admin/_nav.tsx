@@ -42,6 +42,7 @@ const GROUPS: { title: string; links: { href: string; label: string }[] }[] = [
     title: "Site",
     links: [
       { href: "/admin/site-content", label: "Site Content" },
+      { href: "/admin/templates", label: "Templates" },
       { href: "/", label: "Public Site" },
     ],
   },

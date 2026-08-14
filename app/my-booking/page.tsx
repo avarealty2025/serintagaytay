@@ -22,6 +22,12 @@ interface BookingResult {
   guestPhone: string;
 }
 
+interface CheckinTemplate {
+  instructions: string;
+  houseRules: string;
+  photos: { url: string; caption: string }[];
+}
+
 function getUnitLabel(unitId: string): string {
   const u = UNITS.find((u) => u.id === unitId);
   return u ? (u.name || `${u.tower}-${u.code}`) : unitId;
@@ -74,6 +80,7 @@ export default function MyBookingPage() {
   const [bookings, setBookings] = useState<BookingResult[] | null>(null);
   const [error, setError] = useState("");
   const [selected, setSelected] = useState<BookingResult | null>(null);
+  const [checkinTemplates, setCheckinTemplates] = useState<Record<string, CheckinTemplate>>({});
 
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -82,6 +89,7 @@ export default function MyBookingPage() {
     setError("");
     setBookings(null);
     setSelected(null);
+    setCheckinTemplates({});
     try {
       const res = await fetch("/api/bookings/lookup", {
         method: "POST",
@@ -94,12 +102,21 @@ export default function MyBookingPage() {
         return;
       }
       setBookings(data.bookings);
+      if (data.checkinTemplates) setCheckinTemplates(data.checkinTemplates);
       if (data.bookings.length === 1) setSelected(data.bookings[0]);
     } catch {
       setError("Network error. Please try again.");
     } finally {
       setLoading(false);
     }
+  }
+
+  function getCheckinTemplate(unitId: string): CheckinTemplate {
+    return checkinTemplates[unitId] || {
+      instructions: "Check-in time is 2:00 PM. Check-out is at 12:00 PM (noon).\nProceed to the building lobby and present a valid government ID.\nYour unit key card will be provided at the front desk or via lockbox — details will be sent separately.\nWi-Fi password and unit access instructions will be provided upon check-in.",
+      houseRules: "No smoking inside the unit\nNo pets allowed\nNo parties or events\nQuiet hours: 10 PM to 7 AM\nMaximum guests as per unit capacity",
+      photos: [],
+    };
   }
 
   return (
@@ -288,28 +305,60 @@ export default function MyBookingPage() {
               </div>
             </div>
 
-            {selected.status === "confirmed" && (
-              <div className="mb-checkin-box">
-                <h3>Check-in Instructions</h3>
-                <ul>
-                  <li>Check-in time is <strong>2:00 PM</strong>. Check-out is at <strong>12:00 PM (noon)</strong>.</li>
-                  <li>Proceed to the building lobby and present a <strong>valid government ID</strong>.</li>
-                  <li>Your unit key card will be provided at the front desk or via lockbox — details will be sent separately.</li>
-                  {selected.paymentType === "reservation" && selected.amountPaid < selected.grossAmount && (
-                    <li>Please settle the <strong>remaining balance of {formatPHP(selected.grossAmount - (selected.amountPaid || 0) - (selected.discountAmount || 0))}</strong> on or before arrival.</li>
+            {selected.status === "confirmed" && (() => {
+              const tpl = getCheckinTemplate(selected.unitId);
+              const instructions = tpl.instructions.split("\n").filter(Boolean);
+              const houseRules = tpl.houseRules.split("\n").filter(Boolean);
+              const balance = selected.grossAmount - (selected.amountPaid || 0) - (selected.discountAmount || 0);
+              return (
+                <div className="mb-checkin-box">
+                  <h3>Check-in Instructions</h3>
+                  <ul>
+                    {instructions.map((line, i) => (
+                      <li key={i}>{line}</li>
+                    ))}
+                    {selected.paymentType === "reservation" && balance > 0 && (
+                      <li>Please settle the <strong>remaining balance of {formatPHP(balance)}</strong> on or before arrival.</li>
+                    )}
+                  </ul>
+                  {tpl.photos.length > 0 && (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem", margin: "1rem 0" }}>
+                      {tpl.photos.map((p, i) => (
+                        <div key={i} style={{ textAlign: "center" }}>
+                          <img
+                            src={p.url}
+                            alt={p.caption || "Check-in photo"}
+                            style={{
+                              width: 200,
+                              maxWidth: "100%",
+                              height: 140,
+                              objectFit: "cover",
+                              borderRadius: 8,
+                              border: "1px solid var(--line)",
+                            }}
+                          />
+                          {p.caption && (
+                            <p style={{ fontSize: "0.72rem", color: "var(--text-3)", margin: "0.25rem 0 0" }}>
+                              {p.caption}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   )}
-                  <li>Wi-Fi password and unit access instructions will be provided upon check-in.</li>
-                </ul>
-                <h4>House Rules</h4>
-                <ul>
-                  <li>No smoking inside the unit</li>
-                  <li>No pets allowed</li>
-                  <li>No parties or events</li>
-                  <li>Quiet hours: 10 PM to 7 AM</li>
-                  <li>Maximum guests as per unit capacity</li>
-                </ul>
-              </div>
-            )}
+                  {houseRules.length > 0 && (
+                    <>
+                      <h4>House Rules</h4>
+                      <ul>
+                        {houseRules.map((rule, i) => (
+                          <li key={i}>{rule}</li>
+                        ))}
+                      </ul>
+                    </>
+                  )}
+                </div>
+              );
+            })()}
 
             {selected.status === "pending_payment" && (
               <div className="mb-pending-box">

@@ -1,5 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isSupabaseConfigured, getSupabaseAdmin } from "../../../../src/lib/supabase.ts";
+import { getDbSettings } from "../../../../src/data/db.ts";
+
+interface CheckinTemplate {
+  instructions: string;
+  houseRules: string;
+  photos: { url: string; caption: string }[];
+}
 
 export async function POST(req: NextRequest) {
   if (!isSupabaseConfigured) {
@@ -66,5 +73,22 @@ export async function POST(req: NextRequest) {
     };
   });
 
-  return NextResponse.json({ bookings: mapped });
+  const unitIds = [...new Set(mapped.map((b) => String(b.unitId)))];
+  const checkinTemplates: Record<string, CheckinTemplate> = {};
+  try {
+    const allSettings = await getDbSettings();
+    if (allSettings) {
+      const defaultTpl = allSettings.checkin_template as CheckinTemplate | undefined;
+      for (const uid of unitIds) {
+        const unitTpl = allSettings[`checkin_template:${uid}`] as CheckinTemplate | undefined;
+        checkinTemplates[uid] = unitTpl || defaultTpl || {
+          instructions: "Check-in time is 2:00 PM. Check-out is at 12:00 PM (noon).\nProceed to the building lobby and present a valid government ID.\nYour unit key card will be provided at the front desk or via lockbox — details will be sent separately.\nWi-Fi password and unit access instructions will be provided upon check-in.",
+          houseRules: "No smoking inside the unit\nNo pets allowed\nNo parties or events\nQuiet hours: 10 PM to 7 AM\nMaximum guests as per unit capacity",
+          photos: [],
+        };
+      }
+    }
+  } catch {}
+
+  return NextResponse.json({ bookings: mapped, checkinTemplates });
 }

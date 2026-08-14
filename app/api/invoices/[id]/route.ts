@@ -4,6 +4,7 @@ import { isSupabaseConfigured, getSupabaseAdmin } from "../../../../src/lib/supa
 import { UNITS } from "../../../../src/data/units.ts";
 import { getSettings } from "../../../../src/lib/settings.ts";
 import { sendEmail } from "../../../../src/lib/email.ts";
+import { getDbSettings } from "../../../../src/data/db.ts";
 
 function getUnitLabel(unitId: string): string {
   const u = UNITS.find((u) => u.id === unitId);
@@ -27,6 +28,10 @@ function formatPHP(n: number): string {
   return "₱" + n.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function esc(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
 interface BookingRow {
   id: string;
   unit_id: string;
@@ -42,6 +47,14 @@ interface BookingRow {
   created_at: string;
   notes: string | null;
   guests: { name: string; email: string; phone: string };
+}
+
+interface EmailTemplate {
+  bannerUrl: string;
+  greeting: string;
+  bodyText: string;
+  footerText: string;
+  photos: { url: string; caption: string }[];
 }
 
 async function getBooking(id: string): Promise<BookingRow | null> {
@@ -62,7 +75,19 @@ async function getBooking(id: string): Promise<BookingRow | null> {
   return data as unknown as BookingRow;
 }
 
-function invoiceHtml(b: BookingRow, settings: ReturnType<typeof getSettings>): string {
+async function getEmailTemplate(): Promise<EmailTemplate | null> {
+  try {
+    const all = await getDbSettings();
+    if (all?.email_template) return all.email_template as EmailTemplate;
+  } catch {}
+  return null;
+}
+
+function invoiceHtml(
+  b: BookingRow,
+  settings: ReturnType<typeof getSettings>,
+  emailTpl: EmailTemplate | null,
+): string {
   const nights = nightsBetween(b.check_in, b.check_out);
   const balance = b.gross_amount - (b.amount_paid || 0) - (b.discount_amount || 0);
   const ref = b.id.slice(0, 8).toUpperCase();
@@ -77,6 +102,43 @@ function invoiceHtml(b: BookingRow, settings: ReturnType<typeof getSettings>): s
     expired: "Expired",
     no_show: "No Show",
   };
+
+  const greeting = emailTpl?.greeting
+    ? esc(emailTpl.greeting.replace(/\{guest_name\}/g, b.guests.name))
+    : "";
+  const bodyText = emailTpl?.bodyText ? esc(emailTpl.bodyText) : "";
+  const footerCustom = emailTpl?.footerText
+    ? `<p style="margin:8px 0 0;color:#777">${esc(emailTpl.footerText)}</p>`
+    : "";
+
+  const bannerHtml = emailTpl?.bannerUrl
+    ? `<div style="text-align:center;background:#2F5A1E;padding:0">
+        <img src="${emailTpl.bannerUrl}" alt="Serin Tagaytay" style="width:100%;max-height:200px;object-fit:cover;display:block" />
+       </div>`
+    : "";
+
+  const photosHtml =
+    emailTpl?.photos && emailTpl.photos.length > 0
+      ? `<div style="margin:20px 0;text-align:center">
+          ${emailTpl.photos
+            .map(
+              (p) =>
+                `<div style="display:inline-block;margin:6px;text-align:center">
+                  <img src="${p.url}" alt="${esc(p.caption || "")}" style="width:200px;max-width:100%;height:140px;object-fit:cover;border-radius:8px;border:1px solid #eee" />
+                  ${p.caption ? `<p style="margin:4px 0 0;font-size:11px;color:#888">${esc(p.caption)}</p>` : ""}
+                </div>`,
+            )
+            .join("")}
+        </div>`
+      : "";
+
+  const greetingHtml =
+    greeting || bodyText
+      ? `<div style="margin-bottom:24px;padding:16px 0;border-bottom:1px solid #eee">
+          ${greeting ? `<p style="margin:0 0 8px;font-size:15px;font-weight:600;color:#1a1a1a">${greeting}</p>` : ""}
+          ${bodyText ? `<p style="margin:0;font-size:13px;color:#555;line-height:1.6">${bodyText}</p>` : ""}
+        </div>`
+      : "";
 
   return `<!DOCTYPE html>
 <html>
@@ -111,6 +173,7 @@ function invoiceHtml(b: BookingRow, settings: ReturnType<typeof getSettings>): s
 </head>
 <body>
 <div class="invoice">
+  ${bannerHtml}
   <div class="header">
     <div>
       <p class="brand">SERIN TAGAYTAY<small>STAYCATION</small></p>
@@ -121,12 +184,13 @@ function invoiceHtml(b: BookingRow, settings: ReturnType<typeof getSettings>): s
     </div>
   </div>
   <div class="body">
+    ${greetingHtml}
     <div class="meta-row">
       <div class="meta-col">
         <h4>Bill To</h4>
-        <p><strong>${b.guests.name}</strong></p>
-        <p>${b.guests.email}</p>
-        ${b.guests.phone ? `<p>${b.guests.phone}</p>` : ""}
+        <p><strong>${esc(b.guests.name)}</strong></p>
+        <p>${esc(b.guests.email)}</p>
+        ${b.guests.phone ? `<p>${esc(b.guests.phone)}</p>` : ""}
       </div>
       <div class="meta-col" style="text-align:right">
         <h4>Invoice Date</h4>
@@ -148,7 +212,7 @@ function invoiceHtml(b: BookingRow, settings: ReturnType<typeof getSettings>): s
       <tbody>
         <tr>
           <td>
-            <strong>${unit}</strong><br>
+            <strong>${esc(unit)}</strong><br>
             <span style="color:#888;font-size:12px">${formatDate(b.check_in)} — ${formatDate(b.check_out)}</span>
           </td>
           <td class="text-right">${nights} night${nights !== 1 ? "s" : ""}</td>
@@ -172,6 +236,8 @@ function invoiceHtml(b: BookingRow, settings: ReturnType<typeof getSettings>): s
       </tbody>
     </table>
 
+    ${photosHtml}
+
     <div style="margin-top:24px;padding:16px;background:#f8f6f2;border-radius:8px;font-size:12px;color:#555;line-height:1.6">
       <strong>Guests:</strong> ${b.guests_count} &nbsp;|&nbsp;
       <strong>Source:</strong> ${b.source || "Direct"} &nbsp;|&nbsp;
@@ -180,8 +246,9 @@ function invoiceHtml(b: BookingRow, settings: ReturnType<typeof getSettings>): s
     </div>
   </div>
   <div class="footer">
-    <p style="margin:0">${settings.business.name} &bull; ${settings.business.address}</p>
-    ${settings.business.website ? `<p style="margin:4px 0 0">${settings.business.website}</p>` : ""}
+    <p style="margin:0">${esc(settings.business.name)} &bull; ${esc(settings.business.address)}</p>
+    ${settings.business.website ? `<p style="margin:4px 0 0">${esc(settings.business.website)}</p>` : ""}
+    ${footerCustom}
   </div>
 </div>
 </body>
@@ -198,11 +265,11 @@ export async function GET(
   }
 
   const { id } = await params;
-  const b = await getBooking(id);
+  const [b, emailTpl] = await Promise.all([getBooking(id), getEmailTemplate()]);
   if (!b) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const settings = getSettings();
-  const html = invoiceHtml(b, settings);
+  const html = invoiceHtml(b, settings, emailTpl);
   return new NextResponse(html, {
     headers: { "Content-Type": "text/html; charset=utf-8" },
   });
@@ -218,14 +285,14 @@ export async function POST(
   }
 
   const { id } = await params;
-  const b = await getBooking(id);
+  const [b, emailTpl] = await Promise.all([getBooking(id), getEmailTemplate()]);
   if (!b) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const { action } = await req.json();
 
   if (action === "send") {
     const settings = getSettings();
-    const html = invoiceHtml(b, settings);
+    const html = invoiceHtml(b, settings, emailTpl);
     const ref = b.id.slice(0, 8).toUpperCase();
     const result = await sendEmail({
       to: b.guests.email,
