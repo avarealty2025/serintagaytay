@@ -91,7 +91,6 @@ export default async function Home({
             <Link href="#reviews">Reviews</Link>
             <Link href="/book">Book</Link>
             <Link href="/my-booking">My Booking</Link>
-            <Link href="/admin">Admin</Link>
           </nav>
         </div>
       </header>

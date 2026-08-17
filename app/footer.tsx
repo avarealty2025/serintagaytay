@@ -59,6 +59,18 @@ export function Footer() {
           <p>
             &copy; {new Date().getFullYear()} Serin Tagaytay Staycation. All
             rights reserved.
+            <Link
+              href="/admin"
+              style={{
+                color: "inherit",
+                opacity: 0.3,
+                fontSize: "0.65rem",
+                marginLeft: "0.75rem",
+                textDecoration: "none",
+              }}
+            >
+              Manage
+            </Link>
           </p>
           <div className="lux-footer-social">
             <a
