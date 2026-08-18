@@ -5,6 +5,7 @@ import { nightsBetween, toDateStr } from "../../../src/lib/dates.ts";
 import { formatPHP, quote } from "../../../src/lib/pricing.ts";
 import { ConfirmBtn } from "./_confirm-btn.tsx";
 import { DeleteBtn } from "./_delete-btn.tsx";
+import { StatusBtn } from "./_status-btn.tsx";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +19,8 @@ const SOURCE_LABEL: Record<string, string> = {
   block: "Blocked",
 };
 
+const GONE = new Set(["checked_out", "cancelled", "payment_rejected", "expired", "no_show"]);
+
 export default async function BookingsPage({
   searchParams,
 }: {
@@ -29,8 +32,12 @@ export default async function BookingsPage({
   const filterSource = sp.source || "";
   const filterUnit = sp.unit || "";
   const search = (sp.q || "").toLowerCase();
+  const showAll = sp.show === "all";
 
   let filtered = bookings;
+  if (!showAll) {
+    filtered = filtered.filter((b) => !GONE.has(b.status));
+  }
   if (filterSource) {
     filtered = filtered.filter((b) => b.source === filterSource);
   }
@@ -49,6 +56,8 @@ export default async function BookingsPage({
     b.checkIn.localeCompare(a.checkIn),
   );
 
+  const today = toDateStr(new Date());
+
   const unitMap = new Map(UNITS.map((u) => [u.id, u]));
 
   const sources = [...new Set(bookings.map((b) => b.source).filter(Boolean))];
@@ -57,7 +66,20 @@ export default async function BookingsPage({
   return (
     <>
       <div className="page-head">
-        <h1 className="today">Bookings</h1>
+        <div>
+          <h1 className="today">Bookings</h1>
+          <div style={{ display: "flex", gap: "0.75rem", marginTop: "0.25rem", fontSize: "0.8rem" }}>
+            <Link href="/admin/bookings" style={{ fontWeight: showAll ? 400 : 700, color: "var(--accent)", textDecoration: "none" }}>
+              Active
+            </Link>
+            <Link href="/admin/bookings/history" style={{ color: "var(--text-3)", textDecoration: "none" }}>
+              History
+            </Link>
+            <Link href="/admin/bookings?show=all" style={{ fontWeight: showAll ? 700 : 400, color: "var(--text-3)", textDecoration: "none" }}>
+              All
+            </Link>
+          </div>
+        </div>
         <Link href="/admin/bookings/new" className="btn">
           + New Booking
         </Link>
@@ -183,6 +205,22 @@ export default async function BookingsPage({
                     </td>
                     <td><ConfirmBtn bookingId={b.id} status={b.status} /></td>
                     <td style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                      {b.status === "confirmed" && b.checkIn <= today && b.checkOut > today && (
+                        <StatusBtn
+                          bookingId={b.id}
+                          action="checked_in"
+                          label="Check In"
+                          confirmMsg={`Check in ${b.guest || "this guest"}?`}
+                        />
+                      )}
+                      {(b.status === "checked_in" || (b.status === "confirmed" && b.checkOut <= today)) && (
+                        <StatusBtn
+                          bookingId={b.id}
+                          action="checked_out"
+                          label="Check Out"
+                          confirmMsg={`Check out ${b.guest || "this guest"}?`}
+                        />
+                      )}
                       <Link
                         href={`/admin/bookings/${b.id}/edit`}
                         style={{ fontSize: "0.72rem", color: "var(--accent)", fontWeight: 600, textDecoration: "none" }}

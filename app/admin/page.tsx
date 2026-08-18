@@ -5,10 +5,12 @@ import { findAllOverlaps } from "../../src/lib/availability.ts";
 import { dayOfWeek, nightsBetween, toDateStr, addDays } from "../../src/lib/dates.ts";
 import { formatPHP, quote } from "../../src/lib/pricing.ts";
 import { getSettings } from "../../src/lib/settings.ts";
+import { StatusBtn } from "./bookings/_status-btn.tsx";
 
 export const dynamic = "force-dynamic";
 
 const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const GONE = new Set(["checked_out", "cancelled", "payment_rejected", "expired", "no_show"]);
 
 export default async function Dashboard() {
   const today = toDateStr(new Date());
@@ -18,14 +20,19 @@ export default async function Dashboard() {
   const unitMap = new Map(UNITS.map((u) => [u.id, u]));
   const active = UNITS.filter((u) => u.active);
 
-  const arrivals = bookings.filter((b) => b.checkIn === today);
-  const departures = bookings.filter((b) => b.checkOut === today);
-  const inHouse = bookings.filter((b) => b.checkIn <= today && b.checkOut > today);
+  const live = bookings.filter((b) => !GONE.has(b.status));
+
+  const arrivals = live.filter((b) => b.checkIn === today && b.status !== "checked_in");
+  const departures = live.filter((b) => b.checkOut === today);
+  const inHouse = live.filter((b) => b.checkIn <= today && b.checkOut > today);
   const tomorrow = addDays(today, 1);
-  const tomorrowArrivals = bookings.filter((b) => b.checkIn === tomorrow);
+  const tomorrowArrivals = live.filter((b) => b.checkIn === tomorrow);
+
+  const upcoming = live.filter(
+    (b) => b.checkIn > today && b.status !== "checked_in",
+  ).sort((a, b) => a.checkIn.localeCompare(b.checkIn)).slice(0, 10);
 
   let totalNights = 0;
-  const monthPrefix = today.slice(0, 7);
 
   const unitMonthRevenue = new Map<string, Map<string, number>>();
 
@@ -67,6 +74,10 @@ export default async function Dashboard() {
   const occupiedTonight = inHouse.length;
   const availableTonight = active.length - occupiedTonight;
 
+  const checkedOutToday = bookings.filter(
+    (b) => b.checkOut === today && b.status === "checked_out",
+  );
+
   return (
     <>
       <div className="page-head">
@@ -101,9 +112,9 @@ export default async function Dashboard() {
           <p className="s">{tomorrowArrivals.length} tomorrow</p>
         </div>
         <div className="tile">
-          <p className="k">Departures Today</p>
-          <p className="v">{departures.length}</p>
-          <p className="s">checkouts</p>
+          <p className="k">In House</p>
+          <p className="v">{inHouse.length}</p>
+          <p className="s">staying tonight</p>
         </div>
         <div className={overlaps.length ? "tile alert" : "tile"}>
           <p className="k">Conflicts</p>
@@ -124,15 +135,23 @@ export default async function Dashboard() {
             </div>
           ) : (
             arrivals.map((b) => (
-              <div className="row" key={b.id}>
-                <span className="stripe ok" />
-                <span>
-                  <p className="who">{b.guest || "(no name)"}</p>
-                  <p className="sub">
-                    {b.unitId} &middot; {b.source ?? "unknown"} &middot;
-                    {b.checkIn} to {b.checkOut}
-                  </p>
-                </span>
+              <div className="row" key={b.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <span className="stripe ok" />
+                  <span>
+                    <p className="who">{b.guest || "(no name)"}</p>
+                    <p className="sub">
+                      {b.unitId} &middot; {b.source ?? "unknown"} &middot;
+                      {b.checkIn} to {b.checkOut}
+                    </p>
+                  </span>
+                </div>
+                <StatusBtn
+                  bookingId={b.id}
+                  action="checked_in"
+                  label="Check In"
+                  confirmMsg={`Check in ${b.guest || "this guest"}?`}
+                />
               </div>
             ))
           )}
@@ -149,14 +168,22 @@ export default async function Dashboard() {
             </div>
           ) : (
             departures.map((b) => (
-              <div className="row" key={b.id}>
-                <span className="stripe due" />
-                <span>
-                  <p className="who">{b.guest || "(no name)"}</p>
-                  <p className="sub">
-                    {b.unitId} &middot; {b.source ?? "unknown"}
-                  </p>
-                </span>
+              <div className="row" key={b.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <span className="stripe due" />
+                  <span>
+                    <p className="who">{b.guest || "(no name)"}</p>
+                    <p className="sub">
+                      {b.unitId} &middot; {b.source ?? "unknown"}
+                    </p>
+                  </span>
+                </div>
+                <StatusBtn
+                  bookingId={b.id}
+                  action="checked_out"
+                  label="Check Out"
+                  confirmMsg={`Check out ${b.guest || "this guest"}?`}
+                />
               </div>
             ))
           )}
@@ -182,10 +209,66 @@ export default async function Dashboard() {
                   <th>Check-in</th>
                   <th>Check-out</th>
                   <th>Source</th>
+                  <th>Status</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
                 {inHouse.map((b) => {
+                  const u = unitMap.get(b.unitId);
+                  return (
+                    <tr key={b.id}>
+                      <td className="mono">
+                        {u ? `${u.tower}-${u.code}` : b.unitId}
+                      </td>
+                      <td>{b.guest || "(no name)"}</td>
+                      <td className="mono">{b.checkIn}</td>
+                      <td className="mono">{b.checkOut}</td>
+                      <td>
+                        <span className={`src-pill ${b.source ?? "unknown"}`}>
+                          {b.source ?? "unknown"}
+                        </span>
+                      </td>
+                      <td>
+                        <span style={{ fontSize: "0.7rem", fontWeight: 600, color: b.status === "checked_in" ? "var(--good)" : "var(--text-3)" }}>
+                          {b.status === "checked_in" ? "In" : b.status}
+                        </span>
+                      </td>
+                      <td>
+                        <StatusBtn
+                          bookingId={b.id}
+                          action="checked_out"
+                          label="Check Out"
+                          confirmMsg={`Check out ${b.guest || "this guest"} from ${u ? `${u.tower}-${u.code}` : b.unitId}?`}
+                        />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {upcoming.length > 0 && (
+        <div className="panel">
+          <h2>
+            Upcoming <span className="hint">next {upcoming.length} arrivals</span>
+          </h2>
+          <div className="tbl-scroll">
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th>Unit</th>
+                  <th>Guest</th>
+                  <th>Check-in</th>
+                  <th>Check-out</th>
+                  <th>Source</th>
+                </tr>
+              </thead>
+              <tbody>
+                {upcoming.map((b) => {
                   const u = unitMap.get(b.unitId);
                   return (
                     <tr key={b.id}>
@@ -206,8 +289,25 @@ export default async function Dashboard() {
               </tbody>
             </table>
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {checkedOutToday.length > 0 && (
+        <div className="panel" style={{ opacity: 0.7 }}>
+          <h2>
+            Checked Out Today <span className="hint">{checkedOutToday.length}</span>
+          </h2>
+          {checkedOutToday.map((b) => (
+            <div className="row" key={b.id}>
+              <span className="stripe" style={{ background: "var(--text-3)" }} />
+              <span>
+                <p className="who" style={{ textDecoration: "line-through", color: "var(--text-3)" }}>{b.guest || "(no name)"}</p>
+                <p className="sub">{b.unitId}</p>
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
 
       {overlaps.length > 0 && (
         <div className="warnbox" style={{ marginBottom: "1.5rem" }}>
@@ -275,8 +375,9 @@ export default async function Dashboard() {
       )}
 
       <p className="foot">
-        Reading {bookings.length} bookings from the owner&rsquo;s sheet.
+        Reading {bookings.length} bookings.
         {" "}Revenue is estimated from unit rates.
+        {" "}<Link href="/admin/bookings/history" style={{ color: "var(--accent)", fontSize: "0.8rem" }}>View History</Link>
       </p>
     </>
   );

@@ -11,6 +11,14 @@ export function ConfirmBtn({ bookingId, status }: { bookingId: string; status: s
     return <span className="pill free" style={{ fontSize: "0.68rem" }}>Confirmed</span>;
   }
 
+  if (status === "checked_in") {
+    return <span className="pill free" style={{ fontSize: "0.68rem", background: "var(--good)", color: "#fff" }}>Checked In</span>;
+  }
+
+  if (status === "checked_out") {
+    return <span className="pill gone" style={{ fontSize: "0.68rem" }}>Checked Out</span>;
+  }
+
   if (status === "cancelled") {
     return <span className="pill gone" style={{ fontSize: "0.68rem" }}>Cancelled</span>;
   }
