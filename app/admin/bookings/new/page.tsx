@@ -37,6 +37,7 @@ export default function NewBookingPage() {
   const [notes, setNotes] = useState("");
   const [parkingFee, setParkingFee] = useState(0);
   const [parkingFeeType, setParkingFeeType] = useState<"per_night" | "one_time">("one_time");
+  const [rateOverride, setRateOverride] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [creating, setCreating] = useState(false);
 
@@ -59,6 +60,17 @@ export default function NewBookingPage() {
     /* skip */
   }
 
+  const customRate = rateOverride !== "" ? Number(rateOverride) : null;
+  const nightsTotal = customRate !== null && customRate >= 0
+    ? customRate * nights
+    : pricing?.nightsTotal ?? 0;
+  const cleaningFee = pricing?.cleaningFee ?? 0;
+  const extraGuestFee = pricing?.extraGuestFee ?? 0;
+  const parkingTotal = parkingFee > 0
+    ? parkingFeeType === "per_night" ? parkingFee * nights : parkingFee
+    : 0;
+  const grandTotal = nightsTotal + cleaningFee + extraGuestFee + parkingTotal;
+
   if (submitted) {
     return (
       <>
@@ -75,9 +87,7 @@ export default function NewBookingPage() {
               {checkOut}
             </p>
             <p className="notice" style={{ textAlign: "left", marginTop: "1.5rem" }}>
-              <strong>Note:</strong> This booking is saved in memory only. It
-              will be lost when the server restarts. Connect Supabase to persist
-              bookings permanently.
+              Booking has been saved to the database.
             </p>
             <div style={{ display: "flex", gap: "0.75rem", justifyContent: "center", marginTop: "1.5rem" }}>
               <Link href="/admin/bookings" className="btn">
@@ -180,6 +190,22 @@ export default function NewBookingPage() {
             </div>
 
             <div className="field">
+              <label htmlFor="rateOverride">Nightly Rate Override (PHP)</label>
+              <input
+                type="number"
+                id="rateOverride"
+                value={rateOverride}
+                onChange={(e) => setRateOverride(e.target.value)}
+                min={0}
+                step={100}
+                placeholder={unit ? `Default: ${unit.baseRate} weekday / ${unit.weekendRate} weekend` : "Leave blank for auto"}
+              />
+              <span style={{ fontSize: "0.7rem", color: "var(--text-3)" }}>
+                Leave blank to use unit default rates
+              </span>
+            </div>
+
+            <div className="field">
               <label htmlFor="guestName">Guest name</label>
               <input
                 type="text"
@@ -278,70 +304,57 @@ export default function NewBookingPage() {
                   <span className="mono">{guests}</span>
                 </div>
                 <div className="sep" />
-                {pricing.nights.map((n) => (
-                  <div className="summary-row sm" key={n.date}>
-                    <span>
-                      {n.date}{" "}
-                      {n.basis === "weekend" ? "(wknd)" : ""}
-                    </span>
-                    <span className="mono">{formatPHP(n.rate)}</span>
-                  </div>
-                ))}
-                <div className="sep" />
-                <div className="summary-row">
-                  <span>Nightly total</span>
-                  <span className="mono">{formatPHP(pricing.nightsTotal)}</span>
-                </div>
-                {pricing.cleaningFee > 0 && (
-                  <div className="summary-row">
-                    <span>Cleaning fee</span>
-                    <span className="mono">
-                      {formatPHP(pricing.cleaningFee)}
-                    </span>
-                  </div>
-                )}
-                {pricing.extraGuestFee > 0 && (
+                {customRate !== null ? (
                   <div className="summary-row">
                     <span>
-                      Extra guest ({pricing.extraGuests})
+                      {nights} nights @ {formatPHP(customRate)}
+                      <span style={{ fontSize: "0.65rem", color: "var(--warn, #C89F45)", marginLeft: "0.3rem" }}>override</span>
                     </span>
-                    <span className="mono">
-                      {formatPHP(pricing.extraGuestFee)}
-                    </span>
+                    <span className="mono">{formatPHP(nightsTotal)}</span>
                   </div>
-                )}
-                {parkingFee > 0 && (
+                ) : (
                   <>
+                    {pricing.nights.map((n) => (
+                      <div className="summary-row sm" key={n.date}>
+                        <span>
+                          {n.date}{" "}
+                          {n.basis === "weekend" ? "(wknd)" : ""}
+                        </span>
+                        <span className="mono">{formatPHP(n.rate)}</span>
+                      </div>
+                    ))}
+                    <div className="sep" />
                     <div className="summary-row">
-                      <span>
-                        Parking{" "}
-                        {parkingFeeType === "per_night"
-                          ? `(${nights} nights)`
-                          : "(one-time)"}
-                      </span>
-                      <span className="mono">
-                        {formatPHP(
-                          parkingFeeType === "per_night"
-                            ? parkingFee * nights
-                            : parkingFee,
-                        )}
-                      </span>
+                      <span>Nightly total</span>
+                      <span className="mono">{formatPHP(nightsTotal)}</span>
                     </div>
                   </>
+                )}
+                {cleaningFee > 0 && (
+                  <div className="summary-row">
+                    <span>Cleaning fee</span>
+                    <span className="mono">{formatPHP(cleaningFee)}</span>
+                  </div>
+                )}
+                {extraGuestFee > 0 && (
+                  <div className="summary-row">
+                    <span>Extra guest ({pricing.extraGuests})</span>
+                    <span className="mono">{formatPHP(extraGuestFee)}</span>
+                  </div>
+                )}
+                {parkingTotal > 0 && (
+                  <div className="summary-row">
+                    <span>
+                      Parking{" "}
+                      {parkingFeeType === "per_night" ? `(${nights} nights)` : "(one-time)"}
+                    </span>
+                    <span className="mono">{formatPHP(parkingTotal)}</span>
+                  </div>
                 )}
                 <div className="sep" />
                 <div className="summary-row total">
                   <span>Total</span>
-                  <span className="mono">
-                    {formatPHP(
-                      pricing.total +
-                        (parkingFee > 0
-                          ? parkingFeeType === "per_night"
-                            ? parkingFee * nights
-                            : parkingFee
-                          : 0),
-                    )}
-                  </span>
+                  <span className="mono">{formatPHP(grandTotal)}</span>
                 </div>
               </div>
             ) : pricing?.requiresManualQuote ? (
@@ -360,10 +373,6 @@ export default function NewBookingPage() {
             onClick={async () => {
               setCreating(true);
               try {
-                const parkingTotal = parkingFee > 0
-                  ? parkingFeeType === "per_night" ? parkingFee * nights : parkingFee
-                  : 0;
-                const totalWithParking = (pricing?.total ?? 0) + parkingTotal;
                 const res = await fetch("/api/bookings", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
@@ -376,7 +385,7 @@ export default function NewBookingPage() {
                     checkOut,
                     guests,
                     source,
-                    grossAmount: totalWithParking,
+                    grossAmount: grandTotal,
                     notes,
                     parkingFee,
                     parkingFeeType,
