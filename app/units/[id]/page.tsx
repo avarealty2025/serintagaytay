@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Mark, RidgePlate } from "../../mark.tsx";
 import { Footer } from "../../footer.tsx";
-import { UNITS, TAAL_VIEW_CODES } from "../../../src/data/units.ts";
+import { TAAL_VIEW_CODES } from "../../../src/data/units.ts";
+import { getUnitsFromDb } from "../../../src/data/units-server.ts";
 import { getUnitPhotosWithDb } from "../../../src/data/unit-photos-server.ts";
 import { formatPHP } from "../../../src/lib/pricing.ts";
 import { PhotoGallery } from "./photo-gallery.tsx";
@@ -20,15 +21,17 @@ export default async function UnitDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const unit = UNITS.find((u) => u.id === id && u.active);
+  const allUnits = await getUnitsFromDb();
+  const unit = allUnits.find((u) => u.id === id && u.active);
   if (!unit) notFound();
 
-  const taal = TAAL_VIEW_CODES.has(unit.code);
+  const taal = unit.view ? unit.view.toLowerCase().includes("taal") : TAAL_VIEW_CODES.has(unit.code);
   const building = unit.buildingId === "west" ? "Serin West" : "Serin East";
   const photos = await getUnitPhotosWithDb(unit.id);
-  const similar = UNITS.filter(
+  const similar = allUnits.filter(
     (u) => u.active && u.type === unit.type && u.id !== unit.id,
   ).slice(0, 3);
+  const viewLabel = unit.view || (taal ? "Taal View" : "Ridge Side");
 
   return (
     <>
@@ -45,7 +48,6 @@ export default async function UnitDetailPage({
             <Link href="/">Stay</Link>
             <Link href="/compare">Compare</Link>
             <Link href="/book">Book</Link>
-            <Link href="/admin">Admin</Link>
           </nav>
         </div>
       </header>
@@ -81,7 +83,7 @@ export default async function UnitDetailPage({
               <span className="ud-tag">{TYPE_LABEL[unit.type]}</span>
               {unit.sqm && <span className="ud-tag">{unit.sqm} sqm</span>}
               <span className="ud-tag">Sleeps {unit.maxGuests}</span>
-              <span className="ud-tag">{taal ? "Taal View" : "Ridge Side"}</span>
+              <span className="ud-tag">{viewLabel}</span>
             </div>
           </div>
         </div>

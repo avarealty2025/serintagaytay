@@ -90,6 +90,7 @@ export default function UnitEditPage() {
           setMinStay(data.minStay ?? 1);
           if (data.amenities?.length) setAmenities(data.amenities);
           if (data.type) setUnitType(data.type);
+          if (data.view) setUnitView(data.view);
         }
         setDbLoaded(true);
       })
@@ -128,6 +129,7 @@ export default function UnitEditPage() {
           body: JSON.stringify({
             name,
             description,
+            view: unitView,
             type: unitType,
             baseRate: weekdayRate,
             weekendRate,

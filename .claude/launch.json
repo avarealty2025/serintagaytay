@@ -3,9 +3,10 @@
   "configurations": [
     {
       "name": "dev",
-      "runtimeExecutable": "C:\\Users\\melan\\tools\\node-v24.18.1-win-x64\\npx.cmd",
+      "runtimeExecutable": "npx",
       "runtimeArgs": ["next", "dev", "--port", "3001"],
-      "port": 3001
+      "port": 3001,
+      "cwd": "C:\\Users\\melan\\serin-pms"
     }
   ]
 }

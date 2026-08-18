@@ -3,9 +3,10 @@ import { Mark } from "./mark.tsx";
 import { Footer } from "./footer.tsx";
 import { Testimonials } from "./testimonials.tsx";
 import { FAQ } from "./_components/faq.tsx";
-import { UNITS, TAAL_VIEW_CODES } from "../src/data/units.ts";
+import { TAAL_VIEW_CODES } from "../src/data/units.ts";
 import { hasPhotos } from "../src/data/unit-photos.ts";
 import { getUnitCoverWithDb } from "../src/data/unit-photos-server.ts";
+import { getUnitsFromDb } from "../src/data/units-server.ts";
 import { getBookings, getDbSettings } from "../src/data/db.ts";
 import { isAvailable } from "../src/lib/availability.ts";
 import { formatPHP, quote, PricingError } from "../src/lib/pricing.ts";
@@ -49,6 +50,8 @@ export default async function Home({
   } catch {
     nights = 2;
   }
+
+  const UNITS = await getUnitsFromDb();
 
   const featuredUnits = content.featuredUnitIds
     .map((id) => UNITS.find((u) => u.id === id))
@@ -196,7 +199,7 @@ export default async function Home({
             {displayUnits.map(
               (unit) => {
                 const cover = coverMap[unit.id] ?? null;
-                const taal = TAAL_VIEW_CODES.has(unit.code);
+                const taal = unit.view ? unit.view.toLowerCase().includes("taal") : TAAL_VIEW_CODES.has(unit.code);
                 const name = unit.name || `${unit.tower}-${unit.code}`;
                 const free = isAvailable(unit.id, checkIn, checkOut, bookings);
                 let priceStr = "";

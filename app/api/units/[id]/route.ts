@@ -48,6 +48,7 @@ export async function GET(
         maxGuests: row.max_guests,
         minStay: row.min_stay,
         amenities: row.amenities ?? [],
+        view: row.view ?? "",
         active: row.active,
       });
     }
@@ -98,6 +99,7 @@ export async function PUT(
   const update: Record<string, unknown> = {};
   if (body.name !== undefined) update.name = body.name || null;
   if (body.description !== undefined) update.description = body.description || null;
+  if (body.view !== undefined) update.view = body.view || null;
   if (body.type !== undefined) update.type = body.type;
   if (body.baseRate !== undefined) update.base_rate = body.baseRate;
   if (body.weekendRate !== undefined) update.weekend_rate = body.weekendRate;
@@ -116,7 +118,11 @@ export async function PUT(
   if (body.active !== undefined) update.active = body.active;
   update.updated_at = new Date().toISOString();
 
-  const { error } = await sb.from("units").update(update).eq("id", dbId);
+  let { error } = await sb.from("units").update(update).eq("id", dbId);
+  if (error && error.message.includes("view") && update.view !== undefined) {
+    delete update.view;
+    ({ error } = await sb.from("units").update(update).eq("id", dbId));
+  }
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
