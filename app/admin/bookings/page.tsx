@@ -145,7 +145,7 @@ export default async function BookingsPage({
                 <th>Pax</th>
                 <th>Source</th>
                 <th className="tar">Amount</th>
-                <th>Payment</th>
+                <th>Balance</th>
                 <th>Proof</th>
                 <th>Status</th>
                 <th></th>
@@ -186,15 +186,14 @@ export default async function BookingsPage({
                         {SOURCE_LABEL[b.source ?? ""] ?? b.source ?? "—"}
                       </span>
                     </td>
-                    <td className="tar mono">{amount || "—"}</td>
+                    <td className="tar mono">{b.grossAmount > 0 ? formatPHP(b.grossAmount) : amount || "—"}</td>
                     <td>
-                      <span style={{
-                        fontSize: "0.72rem",
-                        fontWeight: 600,
-                        color: b.paymentType === "full" ? "var(--good)" : "var(--warn, #C89F45)",
-                      }}>
-                        {b.paymentType === "full" ? "Full" : "Reservation"}
-                      </span>
+                      {(() => {
+                        const bal = b.grossAmount - b.amountPaid;
+                        if (b.grossAmount <= 0) return <span style={{ color: "var(--text-3)", fontSize: "0.72rem" }}>—</span>;
+                        if (bal <= 0) return <span style={{ fontSize: "0.72rem", fontWeight: 600, color: "#fff", background: "var(--good)", padding: "0.15rem 0.5rem", borderRadius: "9px", whiteSpace: "nowrap" }}>Fully Paid</span>;
+                        return <span style={{ fontSize: "0.72rem", fontWeight: 600, color: "#fff", background: "var(--crit, #c0392b)", padding: "0.15rem 0.5rem", borderRadius: "9px", whiteSpace: "nowrap" }}>Collect {formatPHP(bal)}</span>;
+                      })()}
                     </td>
                     <td>
                       {b.proofPath ? (

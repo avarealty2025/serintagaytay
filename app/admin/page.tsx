@@ -12,6 +12,23 @@ export const dynamic = "force-dynamic";
 const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const GONE = new Set(["checked_out", "cancelled", "payment_rejected", "expired", "no_show"]);
 
+function BalancePill({ gross, paid }: { gross: number; paid: number }) {
+  if (gross <= 0) return null;
+  const bal = gross - paid;
+  if (bal <= 0) {
+    return (
+      <span style={{ fontSize: "0.7rem", fontWeight: 600, color: "#fff", background: "var(--good)", padding: "0.15rem 0.5rem", borderRadius: "9px", whiteSpace: "nowrap" }}>
+        Fully Paid
+      </span>
+    );
+  }
+  return (
+    <span style={{ fontSize: "0.7rem", fontWeight: 600, color: "#fff", background: "var(--crit, #c0392b)", padding: "0.15rem 0.5rem", borderRadius: "9px", whiteSpace: "nowrap" }}>
+      Collect {formatPHP(bal)}
+    </span>
+  );
+}
+
 export default async function Dashboard() {
   const today = toDateStr(new Date());
   const settings = getSettings();
@@ -146,12 +163,15 @@ export default async function Dashboard() {
                     </p>
                   </span>
                 </div>
-                <StatusBtn
-                  bookingId={b.id}
-                  action="checked_in"
-                  label="Check In"
-                  confirmMsg={`Check in ${b.guest || "this guest"}?`}
-                />
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <BalancePill gross={b.grossAmount} paid={b.amountPaid} />
+                  <StatusBtn
+                    bookingId={b.id}
+                    action="checked_in"
+                    label="Check In"
+                    confirmMsg={`Check in ${b.guest || "this guest"}?`}
+                  />
+                </div>
               </div>
             ))
           )}
@@ -178,12 +198,15 @@ export default async function Dashboard() {
                     </p>
                   </span>
                 </div>
-                <StatusBtn
-                  bookingId={b.id}
-                  action="checked_out"
-                  label="Check Out"
-                  confirmMsg={`Check out ${b.guest || "this guest"}?`}
-                />
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <BalancePill gross={b.grossAmount} paid={b.amountPaid} />
+                  <StatusBtn
+                    bookingId={b.id}
+                    action="checked_out"
+                    label="Check Out"
+                    confirmMsg={`Check out ${b.guest || "this guest"}?`}
+                  />
+                </div>
               </div>
             ))
           )}
@@ -209,7 +232,7 @@ export default async function Dashboard() {
                   <th>Check-in</th>
                   <th>Check-out</th>
                   <th>Source</th>
-                  <th>Status</th>
+                  <th>Balance</th>
                   <th></th>
                 </tr>
               </thead>
@@ -230,9 +253,7 @@ export default async function Dashboard() {
                         </span>
                       </td>
                       <td>
-                        <span style={{ fontSize: "0.7rem", fontWeight: 600, color: b.status === "checked_in" ? "var(--good)" : "var(--text-3)" }}>
-                          {b.status === "checked_in" ? "In" : b.status}
-                        </span>
+                        <BalancePill gross={b.grossAmount} paid={b.amountPaid} />
                       </td>
                       <td>
                         <StatusBtn
@@ -265,6 +286,7 @@ export default async function Dashboard() {
                   <th>Check-in</th>
                   <th>Check-out</th>
                   <th>Source</th>
+                  <th>Balance</th>
                 </tr>
               </thead>
               <tbody>
@@ -282,6 +304,9 @@ export default async function Dashboard() {
                         <span className={`src-pill ${b.source ?? "unknown"}`}>
                           {b.source ?? "unknown"}
                         </span>
+                      </td>
+                      <td>
+                        <BalancePill gross={b.grossAmount} paid={b.amountPaid} />
                       </td>
                     </tr>
                   );
