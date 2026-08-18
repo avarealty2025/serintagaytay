@@ -61,7 +61,7 @@ export default function NewBookingPage() {
   }
 
   const customRate = rateOverride !== "" ? Number(rateOverride) : null;
-  const nightsTotal = customRate !== null && customRate >= 0
+  const nightsTotal = customRate !== null
     ? customRate * nights
     : pricing?.nightsTotal ?? 0;
   const cleaningFee = pricing?.cleaningFee ?? 0;
@@ -190,7 +190,7 @@ export default function NewBookingPage() {
             </div>
 
             <div className="field">
-              <label htmlFor="rateOverride">Nightly Rate Override (PHP)</label>
+              <label htmlFor="rateOverride">Nightly Rate (PHP)</label>
               <input
                 type="number"
                 id="rateOverride"
@@ -198,11 +198,8 @@ export default function NewBookingPage() {
                 onChange={(e) => setRateOverride(e.target.value)}
                 min={0}
                 step={100}
-                placeholder={unit ? `Default: ${unit.baseRate} weekday / ${unit.weekendRate} weekend` : "Leave blank for auto"}
+                placeholder={unit ? `${unit.baseRate} weekday / ${unit.weekendRate} weekend` : "Auto"}
               />
-              <span style={{ fontSize: "0.7rem", color: "var(--text-3)" }}>
-                Leave blank to use unit default rates
-              </span>
             </div>
 
             <div className="field">
@@ -306,10 +303,7 @@ export default function NewBookingPage() {
                 <div className="sep" />
                 {customRate !== null ? (
                   <div className="summary-row">
-                    <span>
-                      {nights} nights @ {formatPHP(customRate)}
-                      <span style={{ fontSize: "0.65rem", color: "var(--warn, #C89F45)", marginLeft: "0.3rem" }}>override</span>
-                    </span>
+                    <span>{nights} night{nights !== 1 ? "s" : ""} @ {formatPHP(customRate)}</span>
                     <span className="mono">{formatPHP(nightsTotal)}</span>
                   </div>
                 ) : (
