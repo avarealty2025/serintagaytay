@@ -13,7 +13,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { unitId, guestName, guestEmail, guestPhone, checkIn, checkOut, guests, source, grossAmount, notes, proofPath, guestList, paymentType, amountPaid, promoCodeId, discountAmount } = body;
+  const { unitId, guestName, guestEmail, guestPhone, checkIn, checkOut, guests, source, grossAmount, notes, proofPath, guestList, paymentType, amountPaid, promoCodeId, discountAmount, parkingFee, parkingFeeType } = body;
   if (!unitId || !guestName || !checkIn || !checkOut) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
@@ -34,6 +34,8 @@ export async function POST(req: NextRequest) {
     amountPaid: Number(amountPaid) || 0,
     promoCodeId: promoCodeId || undefined,
     discountAmount: Number(discountAmount) || 0,
+    parkingFee: Number(parkingFee) || 0,
+    parkingFeeType: parkingFeeType || "one_time",
   });
   if (result.error) return NextResponse.json({ error: result.error }, { status: 500 });
   await logAudit({ entity: "bookings", entityId: result.id!, action: "insert", after: body });

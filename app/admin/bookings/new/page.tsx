@@ -35,7 +35,10 @@ export default function NewBookingPage() {
   const [guestEmail, setGuestEmail] = useState("");
   const [guestPhone, setGuestPhone] = useState("");
   const [notes, setNotes] = useState("");
+  const [parkingFee, setParkingFee] = useState(0);
+  const [parkingFeeType, setParkingFeeType] = useState<"per_night" | "one_time">("one_time");
   const [submitted, setSubmitted] = useState(false);
+  const [creating, setCreating] = useState(false);
 
   const unit = active.find((u) => u.id === unitId);
   let pricing: PriceBreakdown | null = null;
@@ -220,6 +223,32 @@ export default function NewBookingPage() {
                 placeholder="Special requests, arrival time, etc."
               />
             </div>
+
+            <div className="field-row">
+              <div className="field">
+                <label htmlFor="parkingFee">Parking Fee (PHP)</label>
+                <input
+                  type="number"
+                  id="parkingFee"
+                  value={parkingFee}
+                  onChange={(e) => setParkingFee(Number(e.target.value))}
+                  min={0}
+                  step={100}
+                  placeholder="0"
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="parkingFeeType">Parking Charge</label>
+                <select
+                  id="parkingFeeType"
+                  value={parkingFeeType}
+                  onChange={(e) => setParkingFeeType(e.target.value as "per_night" | "one_time")}
+                >
+                  <option value="one_time">One-time</option>
+                  <option value="per_night">Per night</option>
+                </select>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -281,10 +310,38 @@ export default function NewBookingPage() {
                     </span>
                   </div>
                 )}
+                {parkingFee > 0 && (
+                  <>
+                    <div className="summary-row">
+                      <span>
+                        Parking{" "}
+                        {parkingFeeType === "per_night"
+                          ? `(${nights} nights)`
+                          : "(one-time)"}
+                      </span>
+                      <span className="mono">
+                        {formatPHP(
+                          parkingFeeType === "per_night"
+                            ? parkingFee * nights
+                            : parkingFee,
+                        )}
+                      </span>
+                    </div>
+                  </>
+                )}
                 <div className="sep" />
                 <div className="summary-row total">
                   <span>Total</span>
-                  <span className="mono">{formatPHP(pricing.total)}</span>
+                  <span className="mono">
+                    {formatPHP(
+                      pricing.total +
+                        (parkingFee > 0
+                          ? parkingFeeType === "per_night"
+                            ? parkingFee * nights
+                            : parkingFee
+                          : 0),
+                    )}
+                  </span>
                 </div>
               </div>
             ) : pricing?.requiresManualQuote ? (
@@ -299,22 +356,47 @@ export default function NewBookingPage() {
           <button
             className="btn"
             style={{ width: "100%" }}
-            disabled={!pricing || !!pricingError || !guestName.trim()}
-            onClick={() => setSubmitted(true)}
-          >
-            Create Booking
-          </button>
-
-          <p
-            style={{
-              fontSize: "0.72rem",
-              color: "var(--text-3)",
-              textAlign: "center",
-              margin: "0.5rem 0 0",
+            disabled={!pricing || !!pricingError || !guestName.trim() || creating}
+            onClick={async () => {
+              setCreating(true);
+              try {
+                const parkingTotal = parkingFee > 0
+                  ? parkingFeeType === "per_night" ? parkingFee * nights : parkingFee
+                  : 0;
+                const totalWithParking = (pricing?.total ?? 0) + parkingTotal;
+                const res = await fetch("/api/bookings", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    unitId,
+                    guestName,
+                    guestEmail,
+                    guestPhone,
+                    checkIn,
+                    checkOut,
+                    guests,
+                    source,
+                    grossAmount: totalWithParking,
+                    notes,
+                    parkingFee,
+                    parkingFeeType,
+                  }),
+                });
+                const data = await res.json();
+                if (!res.ok || data.error) {
+                  alert(data.error || "Failed to create booking");
+                } else {
+                  setSubmitted(true);
+                }
+              } catch {
+                alert("Connection error");
+              } finally {
+                setCreating(false);
+              }
             }}
           >
-            Saved in memory until Supabase is connected
-          </p>
+            {creating ? "Creating..." : "Create Booking"}
+          </button>
         </div>
       </div>
     </>

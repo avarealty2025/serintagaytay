@@ -48,6 +48,8 @@ interface BookingData {
   amountPaid: number;
   promoCodeId: string | null;
   discountAmount: number;
+  parkingFee: number;
+  parkingFeeType: "per_night" | "one_time";
 }
 
 export default function EditBookingPage() {
@@ -75,6 +77,8 @@ export default function EditBookingPage() {
   const [paymentType, setPaymentType] = useState<"reservation" | "full">("reservation");
   const [amountPaid, setAmountPaid] = useState(0);
   const [discountAmount, setDiscountAmount] = useState(0);
+  const [parkingFee, setParkingFee] = useState(0);
+  const [parkingFeeType, setParkingFeeType] = useState<"per_night" | "one_time">("one_time");
   const [proofUrl, setProofUrl] = useState<string | null>(null);
   const [proofLoading, setProofLoading] = useState(false);
 
@@ -96,6 +100,8 @@ export default function EditBookingPage() {
         setPaymentType(data.paymentType || "reservation");
         setAmountPaid(data.amountPaid || 0);
         setDiscountAmount(data.discountAmount || 0);
+        setParkingFee(data.parkingFee || 0);
+        setParkingFeeType(data.parkingFeeType || "one_time");
         setLoading(false);
         if (data.proofPath) {
           setProofLoading(true);
@@ -135,6 +141,8 @@ export default function EditBookingPage() {
           grossAmount,
           paymentType,
           amountPaid,
+          parkingFee,
+          parkingFeeType,
         }),
       });
 
@@ -253,6 +261,27 @@ export default function EditBookingPage() {
                 />
               </div>
             </div>
+            <div className="field-row">
+              <div className="field">
+                <label htmlFor="parkingFee">Parking Fee (PHP)</label>
+                <input
+                  type="number"
+                  id="parkingFee"
+                  value={parkingFee}
+                  onChange={(e) => setParkingFee(Number(e.target.value))}
+                  min={0}
+                  step={100}
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="parkingFeeType">Parking Charge</label>
+                <select id="parkingFeeType" value={parkingFeeType} onChange={(e) => setParkingFeeType(e.target.value as "per_night" | "one_time")}>
+                  <option value="one_time">One-time</option>
+                  <option value="per_night">Per night</option>
+                </select>
+              </div>
+            </div>
+
             {paymentType === "reservation" && grossAmount > 0 && amountPaid > 0 && amountPaid < grossAmount && (
               <div style={{ padding: "0.6rem 0.9rem", background: "color-mix(in srgb, var(--warn, #C89F45) 12%, transparent)", borderRadius: "6px", borderLeft: "3px solid var(--warn, #C89F45)", marginBottom: "0.75rem" }}>
                 <p style={{ margin: 0, fontSize: "0.82rem", color: "var(--text-2)" }}>

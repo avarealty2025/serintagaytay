@@ -42,6 +42,8 @@ export async function GET(
     amountPaid: Number(data.amount_paid ?? 0),
     promoCodeId: data.promo_code_id ?? null,
     discountAmount: Number(data.discount_amount ?? 0),
+    parkingFee: Number(data.parking_fee ?? 0),
+    parkingFeeType: data.parking_fee_type ?? "one_time",
   });
 }
 

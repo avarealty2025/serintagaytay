@@ -130,6 +130,8 @@ export interface DbBooking {
   amountPaid: number;
   promoCodeId: string | null;
   discountAmount: number;
+  parkingFee: number;
+  parkingFeeType: "per_night" | "one_time";
   createdAt: string;
 }
 
@@ -156,6 +158,8 @@ export async function getBookings(): Promise<{ bookings: DbBooking[]; problems: 
         amountPaid: 0,
         promoCodeId: null,
         discountAmount: 0,
+        parkingFee: 0,
+        parkingFeeType: "one_time" as const,
         createdAt: "",
       })),
       problems: sheet.problems,
@@ -178,7 +182,7 @@ export async function getBookings(): Promise<{ bookings: DbBooking[]; problems: 
           id: b.id, unitId: b.unitId, checkIn: b.checkIn, checkOut: b.checkOut,
           status: b.status, guest: b.guest, guestEmail: "", guestPhone: "",
           guests: b.guests, guestList: [], source: b.source,
-          grossAmount: 0, notes: null, proofPath: null, paymentType: "reservation" as const, amountPaid: 0, promoCodeId: null, discountAmount: 0, createdAt: "",
+          grossAmount: 0, notes: null, proofPath: null, paymentType: "reservation" as const, amountPaid: 0, promoCodeId: null, discountAmount: 0, parkingFee: 0, parkingFeeType: "one_time" as const, createdAt: "",
         })),
         problems: sheet.problems,
       };
@@ -206,6 +210,8 @@ export async function getBookings(): Promise<{ bookings: DbBooking[]; problems: 
           amountPaid: Number(row.amount_paid ?? 0),
           promoCodeId: row.promo_code_id ?? null,
           discountAmount: Number(row.discount_amount ?? 0),
+          parkingFee: Number(row.parking_fee ?? 0),
+          parkingFeeType: (row.parking_fee_type as "per_night" | "one_time") ?? "one_time",
           createdAt: row.created_at,
         };
       }),
@@ -218,7 +224,7 @@ export async function getBookings(): Promise<{ bookings: DbBooking[]; problems: 
         id: b.id, unitId: b.unitId, checkIn: b.checkIn, checkOut: b.checkOut,
         status: b.status, guest: b.guest, guestEmail: "", guestPhone: "",
         guests: b.guests, guestList: [], source: b.source,
-        grossAmount: 0, notes: null, proofPath: null, paymentType: "reservation" as const, amountPaid: 0, promoCodeId: null, discountAmount: 0, createdAt: "",
+        grossAmount: 0, notes: null, proofPath: null, paymentType: "reservation" as const, amountPaid: 0, promoCodeId: null, discountAmount: 0, parkingFee: 0, parkingFeeType: "one_time" as const, createdAt: "",
       })),
       problems: sheet.problems,
     };
@@ -242,6 +248,8 @@ export async function createBooking(data: {
   amountPaid?: number;
   promoCodeId?: string;
   discountAmount?: number;
+  parkingFee?: number;
+  parkingFeeType?: "per_night" | "one_time";
 }): Promise<{ id: string | null; error: string | null }> {
   if (!isSupabaseConfigured) {
     return { id: `local-${Date.now()}`, error: null };
@@ -286,6 +294,8 @@ export async function createBooking(data: {
       amount_paid: data.amountPaid || 0,
       promo_code_id: data.promoCodeId || null,
       discount_amount: data.discountAmount || 0,
+      parking_fee: data.parkingFee || 0,
+      parking_fee_type: data.parkingFeeType || "one_time",
     })
     .select("id")
     .single();
@@ -310,6 +320,8 @@ export async function updateBooking(
     guestPhone: string;
     paymentType: string;
     amountPaid: number;
+    parkingFee: number;
+    parkingFeeType: string;
   }>,
 ): Promise<{ error: string | null }> {
   if (!isSupabaseConfigured) return { error: "Supabase not configured" };
@@ -326,6 +338,8 @@ export async function updateBooking(
   if (data.status !== undefined) bookingUpdate.status = data.status;
   if (data.paymentType !== undefined) bookingUpdate.payment_type = data.paymentType;
   if (data.amountPaid !== undefined) bookingUpdate.amount_paid = data.amountPaid;
+  if (data.parkingFee !== undefined) bookingUpdate.parking_fee = data.parkingFee;
+  if (data.parkingFeeType !== undefined) bookingUpdate.parking_fee_type = data.parkingFeeType;
   bookingUpdate.updated_at = new Date().toISOString();
 
   if (Object.keys(bookingUpdate).length > 1) {
@@ -562,6 +576,8 @@ export async function getGuest(id: string): Promise<DbGuestDetail | null> {
       amountPaid: Number(row.amount_paid ?? 0),
       promoCodeId: row.promo_code_id ?? null,
       discountAmount: Number(row.discount_amount ?? 0),
+      parkingFee: Number(row.parking_fee ?? 0),
+      parkingFeeType: (row.parking_fee_type as "per_night" | "one_time") ?? "one_time",
       createdAt: row.created_at,
     }));
 
