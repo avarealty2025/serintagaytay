@@ -134,9 +134,14 @@ export function bookingReceivedHtml(data: {
   nights: number;
   guests: number;
   totalAmount: string;
+  amountPaid?: string;
+  balance?: string;
   bookingId: string;
   paymentType?: "reservation" | "full";
 }): string {
+  const paid = data.amountPaid || "PHP 0.00";
+  const bal = data.balance || data.totalAmount;
+  const isFullyPaid = data.paymentType === "full" || bal === "PHP 0.00" || parseFloat(bal.replace(/[^0-9.-]/g, "")) <= 0;
   return `
 <!DOCTYPE html>
 <html>
@@ -158,7 +163,7 @@ export function bookingReceivedHtml(data: {
           Booking Received
         </h2>
         <p style="color:#555;font-size:14px;line-height:1.6;margin:0 0 24px">
-          Hi ${data.guestName}, we received your booking request and payment proof. We will review and confirm your reservation shortly.
+          Hi ${data.guestName}, we received your booking request. We will review and confirm your reservation shortly.
         </p>
 
         <table style="width:100%;border-collapse:collapse;font-size:14px">
@@ -187,19 +192,27 @@ export function bookingReceivedHtml(data: {
             <td style="padding:10px 0;border-bottom:1px solid #eee;font-weight:600">${data.guests}</td>
           </tr>
           <tr>
-            <td style="padding:10px 0;color:#888">Total</td>
-            <td style="padding:10px 0;font-weight:700;color:#2F5A1E;font-size:16px">${data.totalAmount}</td>
+            <td style="padding:10px 0;border-bottom:1px solid #eee;color:#888">Total Amount</td>
+            <td style="padding:10px 0;border-bottom:1px solid #eee;font-weight:700;color:#2F5A1E;font-size:16px">${data.totalAmount}</td>
+          </tr>
+          <tr>
+            <td style="padding:10px 0;border-bottom:1px solid #eee;color:#888">Amount Paid</td>
+            <td style="padding:10px 0;border-bottom:1px solid #eee;font-weight:600;color:#2F5A1E">${paid}</td>
+          </tr>
+          <tr>
+            <td style="padding:10px 0;color:#888;font-weight:700">${isFullyPaid ? "Status" : "Balance Due"}</td>
+            <td style="padding:10px 0;font-weight:700;font-size:16px;color:${isFullyPaid ? "#2F5A1E" : "#c0392b"}">${isFullyPaid ? "FULLY PAID" : bal}</td>
           </tr>
         </table>
 
-        <div style="margin:24px 0;padding:16px;background:#f8f6f2;border-radius:8px;border-left:3px solid #C89F45">
-          ${data.paymentType === "full"
+        <div style="margin:24px 0;padding:16px;background:#f8f6f2;border-radius:8px;border-left:3px solid ${isFullyPaid ? "#2F5A1E" : "#C89F45"}">
+          ${isFullyPaid
             ? `<p style="color:#2F5A1E;font-size:13px;line-height:1.6;margin:0;font-weight:600">
-                You have submitted full payment of ${data.totalAmount}. We are reviewing your payment and will send a confirmation email once approved.
+                Your booking is fully paid. We will send a confirmation email once your reservation is approved.
               </p>`
             : `<p style="color:#555;font-size:13px;line-height:1.6;margin:0">
-                You have submitted a <strong>reservation fee</strong>. Your remaining balance of <strong>${data.totalAmount}</strong> must be settled <strong>on or before your arrival date</strong>.
-                We are reviewing your payment and will send a confirmation email once approved.
+                Your remaining balance of <strong>${bal}</strong> must be settled <strong>on or before your check-in date</strong>.
+                Please prepare the exact amount for our caretaker upon arrival.
               </p>`
           }
         </div>
@@ -230,9 +243,14 @@ export function bookingRequestHtml(data: {
   nights: number;
   guests: number;
   totalAmount: string;
+  amountPaid?: string;
+  balance?: string;
   bookingId: string;
   paymentType?: "reservation" | "full";
 }): string {
+  const paid = data.amountPaid || "PHP 0.00";
+  const bal = data.balance || data.totalAmount;
+  const isFullyPaid = data.paymentType === "full" || bal === "PHP 0.00" || parseFloat(bal.replace(/[^0-9.-]/g, "")) <= 0;
   return `
 <!DOCTYPE html>
 <html>
@@ -288,14 +306,16 @@ export function bookingRequestHtml(data: {
             <td style="padding:10px 0;border-bottom:1px solid #eee">${data.guests}</td>
           </tr>
           <tr>
-            <td style="padding:10px 0;border-bottom:1px solid #eee;color:#888">Total</td>
+            <td style="padding:10px 0;border-bottom:1px solid #eee;color:#888">Total Amount</td>
             <td style="padding:10px 0;border-bottom:1px solid #eee;font-weight:700;color:#2F5A1E;font-size:16px">${data.totalAmount}</td>
           </tr>
           <tr>
-            <td style="padding:10px 0;color:#888">Payment</td>
-            <td style="padding:10px 0;font-weight:600;color:${data.paymentType === "full" ? "#2F5A1E" : "#C89F45"}">
-              ${data.paymentType === "full" ? "FULL PAYMENT" : "RESERVATION FEE ONLY"}
-            </td>
+            <td style="padding:10px 0;border-bottom:1px solid #eee;color:#888">Amount Paid</td>
+            <td style="padding:10px 0;border-bottom:1px solid #eee;font-weight:600;color:#2F5A1E">${paid}</td>
+          </tr>
+          <tr>
+            <td style="padding:10px 0;color:#888;font-weight:700">${isFullyPaid ? "Status" : "Balance to Collect"}</td>
+            <td style="padding:10px 0;font-weight:700;font-size:16px;color:${isFullyPaid ? "#2F5A1E" : "#c0392b"}">${isFullyPaid ? "FULLY PAID" : bal}</td>
           </tr>
         </table>
       </div>

@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { UNITS, TAAL_VIEW_CODES } from "../../../../src/data/units.ts";
+import { UNITS } from "../../../../src/data/units.ts";
 import { quote, formatPHP, PricingError } from "../../../../src/lib/pricing.ts";
 import { nightsBetween, addDays, toDateStr } from "../../../../src/lib/dates.ts";
 import type { PriceBreakdown } from "../../../../src/lib/types.ts";
@@ -37,7 +37,9 @@ export default function NewBookingPage() {
   const [notes, setNotes] = useState("");
   const [parkingFee, setParkingFee] = useState(0);
   const [parkingFeeType, setParkingFeeType] = useState<"per_night" | "one_time">("one_time");
-  const [rateOverride, setRateOverride] = useState("");
+  const [totalAmount, setTotalAmount] = useState("");
+  const [amountPaid, setAmountPaid] = useState(0);
+  const [paymentType, setPaymentType] = useState<"reservation" | "full">("reservation");
   const [submitted, setSubmitted] = useState(false);
   const [creating, setCreating] = useState(false);
 
@@ -60,16 +62,12 @@ export default function NewBookingPage() {
     /* skip */
   }
 
-  const customRate = rateOverride !== "" ? Number(rateOverride) : null;
-  const nightsTotal = customRate !== null
-    ? customRate * nights
-    : pricing?.nightsTotal ?? 0;
-  const cleaningFee = pricing?.cleaningFee ?? 0;
-  const extraGuestFee = pricing?.extraGuestFee ?? 0;
   const parkingTotal = parkingFee > 0
     ? parkingFeeType === "per_night" ? parkingFee * nights : parkingFee
     : 0;
-  const grandTotal = nightsTotal + cleaningFee + extraGuestFee + parkingTotal;
+
+  const grossAmount = totalAmount !== "" ? Number(totalAmount) : (pricing?.total ?? 0) + parkingTotal;
+  const balance = grossAmount - amountPaid;
 
   if (submitted) {
     return (
@@ -190,19 +188,6 @@ export default function NewBookingPage() {
             </div>
 
             <div className="field">
-              <label htmlFor="rateOverride">Nightly Rate (PHP)</label>
-              <input
-                type="number"
-                id="rateOverride"
-                value={rateOverride}
-                onChange={(e) => setRateOverride(e.target.value)}
-                min={0}
-                step={100}
-                placeholder={unit ? `${unit.baseRate} weekday / ${unit.weekendRate} weekend` : "Auto"}
-              />
-            </div>
-
-            <div className="field">
               <label htmlFor="guestName">Guest name</label>
               <input
                 type="text"
@@ -277,93 +262,103 @@ export default function NewBookingPage() {
 
         <div className="form-aside">
           <div className="panel price-summary">
-            <h2>Price Summary</h2>
-            {pricingError ? (
-              <div className="form-body">
-                <p style={{ color: "var(--crit)", fontSize: "0.85rem" }}>
-                  {pricingError}
-                </p>
+            <h2>Payment Summary</h2>
+            <div className="form-body">
+              <div className="summary-row">
+                <span>Unit</span>
+                <span className="mono">
+                  {unit ? `${unit.tower}-${unit.code}` : "—"}
+                </span>
               </div>
-            ) : pricing && !pricing.requiresManualQuote ? (
-              <div className="form-body">
-                <div className="summary-row">
-                  <span>Unit</span>
-                  <span className="mono">
-                    {unit ? `${unit.tower}-${unit.code}` : "—"}
+              <div className="summary-row">
+                <span>Nights</span>
+                <span className="mono">{nights}</span>
+              </div>
+              <div className="summary-row">
+                <span>Guests</span>
+                <span className="mono">{guests}</span>
+              </div>
+
+              {!pricingError && pricing && !pricing.requiresManualQuote && totalAmount === "" && (
+                <>
+                  <div className="sep" />
+                  <div className="summary-row sm" style={{ color: "var(--text-3)" }}>
+                    <span>Suggested rate</span>
+                    <span className="mono">{formatPHP(pricing.total + parkingTotal)}</span>
+                  </div>
+                </>
+              )}
+
+              <div className="sep" />
+
+              <div className="field" style={{ marginBottom: "0.75rem" }}>
+                <label htmlFor="totalAmount" style={{ fontSize: "0.75rem", fontWeight: 700 }}>Total Amount (PHP)</label>
+                <input
+                  type="number"
+                  id="totalAmount"
+                  value={totalAmount}
+                  onChange={(e) => setTotalAmount(e.target.value)}
+                  min={0}
+                  step={100}
+                  placeholder={pricing ? `${(pricing.total + parkingTotal).toLocaleString()}` : "0"}
+                  style={{ fontWeight: 700, fontSize: "1.1rem" }}
+                />
+              </div>
+
+              <div className="field-row" style={{ marginBottom: "0.75rem" }}>
+                <div className="field">
+                  <label htmlFor="paymentType" style={{ fontSize: "0.75rem" }}>Payment Type</label>
+                  <select
+                    id="paymentType"
+                    value={paymentType}
+                    onChange={(e) => setPaymentType(e.target.value as "reservation" | "full")}
+                  >
+                    <option value="reservation">Reservation Fee</option>
+                    <option value="full">Full Payment</option>
+                  </select>
+                </div>
+                <div className="field">
+                  <label htmlFor="amountPaid" style={{ fontSize: "0.75rem" }}>Amount Paid (PHP)</label>
+                  <input
+                    type="number"
+                    id="amountPaid"
+                    value={amountPaid}
+                    onChange={(e) => setAmountPaid(Number(e.target.value))}
+                    min={0}
+                    step={100}
+                  />
+                </div>
+              </div>
+
+              <div className="sep" />
+
+              <div className="summary-row total">
+                <span>Total</span>
+                <span className="mono">{formatPHP(grossAmount)}</span>
+              </div>
+              <div className="summary-row">
+                <span>Paid</span>
+                <span className="mono" style={{ color: "var(--good)" }}>{formatPHP(amountPaid)}</span>
+              </div>
+              <div className="summary-row total" style={{ marginTop: "0.25rem" }}>
+                <span>{balance <= 0 ? "Status" : "Balance to Collect"}</span>
+                {balance <= 0 ? (
+                  <span style={{ fontSize: "0.8rem", fontWeight: 700, color: "#fff", background: "var(--good)", padding: "0.2rem 0.6rem", borderRadius: "9px" }}>
+                    Fully Paid
                   </span>
-                </div>
-                <div className="summary-row">
-                  <span>Nights</span>
-                  <span className="mono">{nights}</span>
-                </div>
-                <div className="summary-row">
-                  <span>Guests</span>
-                  <span className="mono">{guests}</span>
-                </div>
-                <div className="sep" />
-                {customRate !== null ? (
-                  <div className="summary-row">
-                    <span>{nights} night{nights !== 1 ? "s" : ""} @ {formatPHP(customRate)}</span>
-                    <span className="mono">{formatPHP(nightsTotal)}</span>
-                  </div>
                 ) : (
-                  <>
-                    {pricing.nights.map((n) => (
-                      <div className="summary-row sm" key={n.date}>
-                        <span>
-                          {n.date}{" "}
-                          {n.basis === "weekend" ? "(wknd)" : ""}
-                        </span>
-                        <span className="mono">{formatPHP(n.rate)}</span>
-                      </div>
-                    ))}
-                    <div className="sep" />
-                    <div className="summary-row">
-                      <span>Nightly total</span>
-                      <span className="mono">{formatPHP(nightsTotal)}</span>
-                    </div>
-                  </>
+                  <span style={{ fontSize: "0.8rem", fontWeight: 700, color: "#fff", background: "var(--crit, #c0392b)", padding: "0.2rem 0.6rem", borderRadius: "9px" }}>
+                    {formatPHP(balance)}
+                  </span>
                 )}
-                {cleaningFee > 0 && (
-                  <div className="summary-row">
-                    <span>Cleaning fee</span>
-                    <span className="mono">{formatPHP(cleaningFee)}</span>
-                  </div>
-                )}
-                {extraGuestFee > 0 && (
-                  <div className="summary-row">
-                    <span>Extra guest ({pricing.extraGuests})</span>
-                    <span className="mono">{formatPHP(extraGuestFee)}</span>
-                  </div>
-                )}
-                {parkingTotal > 0 && (
-                  <div className="summary-row">
-                    <span>
-                      Parking{" "}
-                      {parkingFeeType === "per_night" ? `(${nights} nights)` : "(one-time)"}
-                    </span>
-                    <span className="mono">{formatPHP(parkingTotal)}</span>
-                  </div>
-                )}
-                <div className="sep" />
-                <div className="summary-row total">
-                  <span>Total</span>
-                  <span className="mono">{formatPHP(grandTotal)}</span>
-                </div>
               </div>
-            ) : pricing?.requiresManualQuote ? (
-              <div className="form-body">
-                <p style={{ color: "var(--warn)", fontSize: "0.85rem" }}>
-                  Long stay ({nights} nights). Requires manual quote.
-                </p>
-              </div>
-            ) : null}
+            </div>
           </div>
 
           <button
             className="btn"
             style={{ width: "100%" }}
-            disabled={!pricing || !!pricingError || !guestName.trim() || creating}
+            disabled={!guestName.trim() || creating || grossAmount <= 0}
             onClick={async () => {
               setCreating(true);
               try {
@@ -379,7 +374,9 @@ export default function NewBookingPage() {
                     checkOut,
                     guests,
                     source,
-                    grossAmount: grandTotal,
+                    grossAmount,
+                    amountPaid,
+                    paymentType,
                     notes,
                     parkingFee,
                     parkingFeeType,

@@ -54,7 +54,10 @@ export async function POST(req: NextRequest) {
   const unitLabel = unit
     ? `${unit.tower}-${unit.code} ${unit.buildingId === "west" ? "Serin West" : "Serin East"}`
     : unitId;
-  const totalAmount = grossAmount ? formatPHP(Number(grossAmount)) : "TBD";
+  const gross = Number(grossAmount) || 0;
+  const paid = Number(amountPaid) || 0;
+  const bal = Math.max(0, gross - paid);
+  const totalAmount = gross ? formatPHP(gross) : "TBD";
 
   const adminEmail = process.env.ADMIN_EMAIL || "avarealty2025@gmail.com";
   const emailData = {
@@ -67,8 +70,10 @@ export async function POST(req: NextRequest) {
     nights,
     guests: Number(guests) || 2,
     totalAmount,
+    amountPaid: formatPHP(paid),
+    balance: formatPHP(bal),
     bookingId: result.id!,
-    paymentType: paymentType || "reservation",
+    paymentType: (paymentType || "reservation") as "reservation" | "full",
   };
 
   const emailResults: { admin?: string; guest?: string } = {};
