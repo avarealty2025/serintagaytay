@@ -64,6 +64,7 @@ export default function UnitEditPage() {
   ]);
   const [unitType, setUnitType] = useState<string>(unit?.type ?? "studio");
   const [unitView, setUnitView] = useState(unit ? (TAAL_VIEW_CODES.has(unit.code) ? "Taal Caldera View" : "Ridge Side") : "");
+  const [checkinInstructions, setCheckinInstructions] = useState("");
   const [icalUrl, setIcalUrl] = useState("");
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -91,6 +92,7 @@ export default function UnitEditPage() {
           if (data.amenities?.length) setAmenities(data.amenities);
           if (data.type) setUnitType(data.type);
           if (data.view) setUnitView(data.view);
+          if (data.checkinInstructions) setCheckinInstructions(data.checkinInstructions);
         }
         setDbLoaded(true);
       })
@@ -144,6 +146,7 @@ export default function UnitEditPage() {
             maxGuests,
             minStay,
             amenities,
+            checkinInstructions,
           }),
         }),
         fetch("/api/units/ical-urls", {
@@ -251,6 +254,18 @@ export default function UnitEditPage() {
                     placeholder="e.g. Taal Caldera View, Ridge Side..."
                   />
                 </div>
+              </div>
+              <div className="field">
+                <label>Email Check-in Instructions</label>
+                <textarea
+                  value={checkinInstructions}
+                  onChange={(e) => setCheckinInstructions(e.target.value)}
+                  rows={4}
+                  placeholder="Custom instructions included in the guest booking email for this unit. e.g. WiFi password, parking slot, door code, caretaker contact..."
+                />
+                <p style={{ margin: "0.25rem 0 0", fontSize: "0.72rem", color: "var(--text-3)" }}>
+                  This text will be included in the booking confirmation email sent to the guest.
+                </p>
               </div>
               <div className="field">
                 <label>iCal Calendar URL</label>

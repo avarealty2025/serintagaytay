@@ -6,6 +6,7 @@ import { dayOfWeek, nightsBetween, toDateStr, addDays } from "../../src/lib/date
 import { formatPHP, quote } from "../../src/lib/pricing.ts";
 import { getSettings } from "../../src/lib/settings.ts";
 import { StatusBtn } from "./bookings/_status-btn.tsx";
+import { CollectBtn } from "./bookings/_collect-btn.tsx";
 
 export const dynamic = "force-dynamic";
 
@@ -165,6 +166,7 @@ export default async function Dashboard() {
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                   <BalancePill gross={b.grossAmount} paid={b.amountPaid} />
+                  <CollectBtn bookingId={b.id} balance={b.grossAmount - b.amountPaid} />
                   <StatusBtn
                     bookingId={b.id}
                     action="checked_in"
@@ -200,6 +202,7 @@ export default async function Dashboard() {
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                   <BalancePill gross={b.grossAmount} paid={b.amountPaid} />
+                  <CollectBtn bookingId={b.id} balance={b.grossAmount - b.amountPaid} />
                   <StatusBtn
                     bookingId={b.id}
                     action="checked_out"
@@ -234,6 +237,7 @@ export default async function Dashboard() {
                   <th>Source</th>
                   <th>Balance</th>
                   <th></th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -254,6 +258,9 @@ export default async function Dashboard() {
                       </td>
                       <td>
                         <BalancePill gross={b.grossAmount} paid={b.amountPaid} />
+                      </td>
+                      <td>
+                        <CollectBtn bookingId={b.id} balance={b.grossAmount - b.amountPaid} />
                       </td>
                       <td>
                         <StatusBtn

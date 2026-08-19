@@ -67,6 +67,7 @@ export interface Unit {
   minStay: number;
   active: boolean;
   view?: string;
+  checkinInstructions?: string;
 }
 
 /** A flat rate for a unit over a half-open date range. One rule type only. */

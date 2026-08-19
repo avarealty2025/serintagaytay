@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isSupabaseConfigured, getSupabaseAdmin } from "../../../../src/lib/supabase.ts";
 import { clearUnitIdCache } from "../../../../src/data/db.ts";
+import { clearUnitsCache } from "../../../../src/data/units-server.ts";
 
 export async function GET(
   _req: NextRequest,
@@ -49,6 +50,7 @@ export async function GET(
         minStay: row.min_stay,
         amenities: row.amenities ?? [],
         view: row.view ?? "",
+        checkinInstructions: row.checkin_instructions ?? "",
         active: row.active,
       });
     }
@@ -116,6 +118,7 @@ export async function PUT(
   if (body.minStay !== undefined) update.min_stay = body.minStay;
   if (body.amenities !== undefined) update.amenities = body.amenities;
   if (body.active !== undefined) update.active = body.active;
+  if (body.checkinInstructions !== undefined) update.checkin_instructions = body.checkinInstructions || null;
   update.updated_at = new Date().toISOString();
 
   let { error } = await sb.from("units").update(update).eq("id", dbId);
@@ -128,5 +131,6 @@ export async function PUT(
   }
 
   clearUnitIdCache();
+  clearUnitsCache();
   return NextResponse.json({ ok: true });
 }

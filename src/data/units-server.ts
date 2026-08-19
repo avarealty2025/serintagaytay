@@ -48,6 +48,7 @@ export async function getUnitsFromDb(): Promise<Unit[]> {
         amenities: (row.amenities as string[]) || u.amenities,
         active: row.active as boolean,
         view: (row.view as string) || undefined,
+        checkinInstructions: (row.checkin_instructions as string) || undefined,
       };
     });
 

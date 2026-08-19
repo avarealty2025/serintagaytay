@@ -59,6 +59,15 @@ export async function PUT(
   const { id } = await params;
   const body = await req.json();
 
+  if (body.collectAdd && body.amountPaid !== undefined) {
+    const sb = getSupabaseAdmin();
+    const { data: existing } = await sb.from("bookings").select("amount_paid").eq("id", id).single();
+    if (existing) {
+      body.amountPaid = Number(existing.amount_paid ?? 0) + Number(body.amountPaid);
+    }
+    delete body.collectAdd;
+  }
+
   const result = await updateBooking(id, body);
   if (result.error) {
     return NextResponse.json({ error: result.error }, { status: 500 });

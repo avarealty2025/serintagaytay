@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getBookings, createBooking, logAudit } from "../../../src/data/db.ts";
 import { isSupabaseConfigured, getSupabaseAdmin } from "../../../src/lib/supabase.ts";
 import { UNITS } from "../../../src/data/units.ts";
+import { getUnitsFromDb } from "../../../src/data/units-server.ts";
 import { nightsBetween } from "../../../src/lib/dates.ts";
 import { formatPHP } from "../../../src/lib/pricing.ts";
 import { sendEmail, bookingRequestHtml, bookingReceivedHtml } from "../../../src/lib/email.ts";
@@ -48,7 +49,8 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const unit = UNITS.find((u) => u.id === unitId);
+  const dbUnits = await getUnitsFromDb();
+  const unit = dbUnits.find((u) => u.id === unitId) || UNITS.find((u) => u.id === unitId);
   let nights = 0;
   try { nights = nightsBetween(checkIn, checkOut); } catch { /* skip */ }
   const unitLabel = unit
@@ -74,6 +76,7 @@ export async function POST(req: NextRequest) {
     balance: formatPHP(bal),
     bookingId: result.id!,
     paymentType: (paymentType || "reservation") as "reservation" | "full",
+    checkinInstructions: unit?.checkinInstructions || "",
   };
 
   const emailResults: { admin?: string; guest?: string } = {};

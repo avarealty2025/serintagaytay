@@ -138,10 +138,12 @@ export function bookingReceivedHtml(data: {
   balance?: string;
   bookingId: string;
   paymentType?: "reservation" | "full";
+  checkinInstructions?: string;
 }): string {
   const paid = data.amountPaid || "PHP 0.00";
   const bal = data.balance || data.totalAmount;
   const isFullyPaid = data.paymentType === "full" || bal === "PHP 0.00" || parseFloat(bal.replace(/[^0-9.-]/g, "")) <= 0;
+  const instructions = data.checkinInstructions?.trim();
   return `
 <!DOCTYPE html>
 <html>
@@ -216,6 +218,13 @@ export function bookingReceivedHtml(data: {
               </p>`
           }
         </div>
+
+        ${instructions ? `
+        <div style="margin:0 0 24px;padding:16px;background:#f0f7ed;border-radius:8px;border-left:3px solid #2F5A1E">
+          <p style="color:#2F5A1E;font-size:13px;font-weight:700;margin:0 0 6px">Check-in Instructions</p>
+          <p style="color:#555;font-size:13px;line-height:1.6;margin:0;white-space:pre-line">${instructions}</p>
+        </div>
+        ` : ""}
 
         <p style="color:#888;font-size:12px;line-height:1.6;margin:24px 0 0">
           If you have questions, reply to this email or message us on Facebook.
