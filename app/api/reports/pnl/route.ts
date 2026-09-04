@@ -118,6 +118,8 @@ export async function GET(req: NextRequest) {
     utilitiesPct: number;
     utilitiesExpense: number;
     parkingRevenue: number;
+    perBookingExpenses: { label: string; amount: number }[];
+    perBookingExpenseTotal: number;
   }> = {};
 
   for (const u of active) {
@@ -134,6 +136,8 @@ export async function GET(req: NextRequest) {
     const cleaningFeePerBooking = Number(settings?.[cleanKey] ?? 0);
     const utilKey = `utilities_pct:${u.id}`;
     const utilitiesPct = Number(settings?.[utilKey] ?? 30);
+    const perBookingKey = `per_booking_expenses:${u.id}`;
+    const perBookingExpenses = (settings?.[perBookingKey] ?? []) as { label: string; amount: number }[];
     unitData[u.id] = {
       unitId: u.id,
       code: `${u.tower}-${u.code}`,
@@ -152,6 +156,7 @@ export async function GET(req: NextRequest) {
       pmFeeIncome: 0, cleaningExpense: 0, totalPmIncome: 0,
       utilitiesPct, utilitiesExpense: 0,
       parkingRevenue: 0,
+      perBookingExpenses, perBookingExpenseTotal: 0,
     };
   }
 
@@ -217,8 +222,10 @@ export async function GET(req: NextRequest) {
     ud.expenses += ud.utilitiesExpense;
     ud.pmFeeIncome = Math.round(ud.revenue * (ud.mgmtFeePercent / 100));
     ud.cleaningExpense = ud.cleaningFeePerBooking * ud.bookingCount;
+    ud.perBookingExpenseTotal = ud.perBookingExpenses.reduce((s, e) => s + e.amount, 0) * ud.bookingCount;
     ud.totalPmIncome = ud.pmFeeIncome;
     ud.expenses += ud.cleaningExpense;
+    ud.expenses += ud.perBookingExpenseTotal;
   }
 
   const totalRevenue = Object.values(unitData).reduce((s, u) => s + u.revenue, 0);

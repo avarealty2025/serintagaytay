@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDbSettings, saveDbSettings } from "../../../src/data/db.ts";
 import { isSupabaseConfigured, getSupabaseAdmin } from "../../../src/lib/supabase.ts";
 
-const PNL_PREFIXES = ["unit_mode:", "mgmt_fee:", "cleaning_fee_pnl:", "utilities_pct:", "fixed_expenses:", "owner_target:"];
+const PNL_PREFIXES = ["unit_mode:", "mgmt_fee:", "cleaning_fee_pnl:", "utilities_pct:", "fixed_expenses:", "owner_target:", "per_booking_expenses:"];
 
 async function isOwnerOrAdmin(userId: string): Promise<boolean> {
   if (userId === "1") return true;

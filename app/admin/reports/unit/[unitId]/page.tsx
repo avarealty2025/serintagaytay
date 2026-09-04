@@ -60,6 +60,8 @@ interface PnlUnit {
   utilitiesPct: number;
   utilitiesExpense: number;
   parkingRevenue: number;
+  perBookingExpenses: { label: string; amount: number }[];
+  perBookingExpenseTotal: number;
 }
 
 function fmt(n: number): string {
@@ -284,6 +286,8 @@ export default function UnitReportPage() {
   const [editingExpId, setEditingExpId] = useState<string | null>(null);
   const [editingFixed, setEditingFixed] = useState(false);
   const [fixedRows, setFixedRows] = useState<{ label: string; amount: string }[]>([]);
+  const [editingPerBooking, setEditingPerBooking] = useState(false);
+  const [perBookingRows, setPerBookingRows] = useState<{ label: string; amount: string }[]>([]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -378,6 +382,14 @@ export default function UnitReportPage() {
       .map((r) => ({ label: r.label.trim(), amount: Number(r.amount) }));
     await saveSetting(`fixed_expenses:${unitId}`, cleaned);
     setEditingFixed(false);
+  }
+
+  async function savePerBookingExpenses() {
+    const cleaned = perBookingRows
+      .filter((r) => r.label.trim() && Number(r.amount) > 0)
+      .map((r) => ({ label: r.label.trim(), amount: Number(r.amount) }));
+    await saveSetting(`per_booking_expenses:${unitId}`, cleaned);
+    setEditingPerBooking(false);
   }
 
   if (loading) {
@@ -698,12 +710,65 @@ export default function UnitReportPage() {
           {/* Monthly Expense Settings */}
           <div className="panel" style={{ marginBottom: "1rem", padding: "1rem" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "2rem", flexWrap: "wrap" }}>
-              <div>
-                <h3 style={{ margin: "0 0 0.5rem", fontSize: "0.82rem", color: "var(--text-2)" }}>Cleaning Fee / Booking</h3>
-                <InlineAmountEdit
-                  value={pnl?.cleaningFeePerBooking || 0}
-                  onSave={(v) => saveSetting(`cleaning_fee_pnl:${unitId}`, v)}
-                />
+              <div style={{ minWidth: 200 }}>
+                <h3 style={{ margin: "0 0 0.5rem", fontSize: "0.82rem", color: "var(--text-2)" }}>Per-Booking Expenses</h3>
+                <div style={{ fontSize: "0.78rem", marginBottom: "0.3rem" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: "1rem", marginBottom: "0.2rem" }}>
+                    <span style={{ color: "var(--text-2)" }}>Cleaning</span>
+                    <span className="mono" style={{ color: "var(--crit, #c0392b)" }}>
+                      <InlineAmountEdit value={pnl?.cleaningFeePerBooking || 0} onSave={(v) => saveSetting(`cleaning_fee_pnl:${unitId}`, v)} />
+                    </span>
+                  </div>
+                  {!editingPerBooking ? (
+                    <div>
+                      {(pnl?.perBookingExpenses || []).map((e, i) => (
+                        <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: "1rem", marginBottom: "0.2rem" }}>
+                          <span style={{ color: "var(--text-2)" }}>{e.label}</span>
+                          <span className="mono" style={{ color: "var(--crit, #c0392b)" }}>{fmt(e.amount)}</span>
+                        </div>
+                      ))}
+                      <button
+                        onClick={() => {
+                          const items = pnl?.perBookingExpenses || [];
+                          setPerBookingRows(items.length > 0
+                            ? items.map(i => ({ label: i.label, amount: String(i.amount) }))
+                            : [{ label: "", amount: "" }]
+                          );
+                          setEditingPerBooking(true);
+                        }}
+                        style={{ fontSize: "0.72rem", padding: "0.2rem 0.5rem", background: "none", border: "1px dashed var(--line)", borderRadius: 4, cursor: "pointer", color: "var(--accent)", marginTop: "0.3rem" }}
+                      >
+                        + Add Per-Booking Expense
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{ background: "var(--surface-2)", borderRadius: 6, padding: "0.6rem", marginTop: "0.3rem" }}>
+                      {perBookingRows.map((row, i) => (
+                        <div key={i} style={{ display: "flex", gap: "0.25rem", marginBottom: "0.25rem", alignItems: "center" }}>
+                          <input type="text" value={row.label} onChange={(e) => { const next = [...perBookingRows]; next[i] = { ...next[i]!, label: e.target.value }; setPerBookingRows(next); }}
+                            placeholder="e.g. Laundry" list="per-booking-list"
+                            style={{ flex: 1, fontSize: "0.75rem", padding: "0.15rem 0.3rem", border: "1px solid var(--line)", borderRadius: 3 }} />
+                          <input type="number" value={row.amount} onChange={(e) => { const next = [...perBookingRows]; next[i] = { ...next[i]!, amount: e.target.value }; setPerBookingRows(next); }}
+                            placeholder="0" min={0} step={50}
+                            style={{ width: "5rem", fontSize: "0.75rem", padding: "0.15rem 0.3rem", border: "1px solid var(--line)", borderRadius: 3, textAlign: "right" }} />
+                          <button onClick={() => setPerBookingRows(perBookingRows.filter((_, j) => j !== i))}
+                            style={{ background: "none", border: "none", color: "var(--crit)", cursor: "pointer", fontSize: "0.9rem", padding: "0 0.15rem" }}>&times;</button>
+                        </div>
+                      ))}
+                      <datalist id="per-booking-list">
+                        {["Laundry", "Supplies", "Amenities Kit", "Towels", "Linens"].map(c => <option key={c} value={c} />)}
+                      </datalist>
+                      <div style={{ display: "flex", gap: "0.3rem", marginTop: "0.3rem" }}>
+                        <button onClick={() => setPerBookingRows([...perBookingRows, { label: "", amount: "" }])}
+                          style={{ fontSize: "0.65rem", padding: "0.15rem 0.4rem", background: "none", border: "1px dashed var(--line)", borderRadius: 3, cursor: "pointer", color: "var(--accent)" }}>+ Row</button>
+                        <button onClick={savePerBookingExpenses}
+                          style={{ fontSize: "0.65rem", padding: "0.15rem 0.5rem", background: "var(--accent)", color: "#fff", border: "none", borderRadius: 3, cursor: "pointer" }}>Save</button>
+                        <button onClick={() => setEditingPerBooking(false)}
+                          style={{ fontSize: "0.65rem", padding: "0.15rem 0.4rem", background: "none", border: "1px solid var(--line)", borderRadius: 3, cursor: "pointer", color: "var(--text-3)" }}>Cancel</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
               <div style={{ flex: 1, minWidth: 200 }}>
                 <h3 style={{ margin: "0 0 0.5rem", fontSize: "0.82rem", color: "var(--text-2)" }}>Fixed Monthly Expenses</h3>
@@ -786,7 +851,10 @@ export default function UnitReportPage() {
 
             const monthExpenses = expenses.filter((e) => e.date.startsWith(month)).reduce((s, e) => s + e.amount, 0);
             const fixedTotal = pnl?.fixedMonthlyTotal || 0;
-            const totalMonthExpenses = monthCleaning + fixedTotal + monthExpenses;
+            const perBookingCount = monthRows.filter(r => r.source !== "block").length;
+            const perBookingItems = pnl?.perBookingExpenses || [];
+            const perBookingTotal = perBookingItems.reduce((s, e) => s + e.amount, 0) * perBookingCount;
+            const totalMonthExpenses = monthCleaning + perBookingTotal + fixedTotal + monthExpenses;
             const monthNet = monthTotal - totalMonthExpenses;
 
             return (
@@ -886,13 +954,23 @@ export default function UnitReportPage() {
                       {monthCleaning > 0 && (
                         <tr style={{ color: "var(--text-2)", fontSize: "0.8rem" }}>
                           <td colSpan={7} style={{ paddingLeft: "1rem" }}>
-                            Cleaning ({monthRows.filter(r => r.source !== "block").length} &times; {fmt(pnl?.cleaningFeePerBooking || 0)})
+                            Cleaning ({perBookingCount} &times; {fmt(pnl?.cleaningFeePerBooking || 0)})
                           </td>
                           <td colSpan={3}></td>
                           <td className="tar mono">{fmt(monthCleaning)}</td>
                           <td colSpan={4}></td>
                         </tr>
                       )}
+                      {perBookingItems.map((e, i) => (
+                        <tr key={`pb-${i}`} style={{ color: "var(--text-2)", fontSize: "0.8rem" }}>
+                          <td colSpan={7} style={{ paddingLeft: "1rem" }}>
+                            {e.label} ({perBookingCount} &times; {fmt(e.amount)})
+                          </td>
+                          <td colSpan={3}></td>
+                          <td className="tar mono">{fmt(e.amount * perBookingCount)}</td>
+                          <td colSpan={4}></td>
+                        </tr>
+                      ))}
                       {(pnl?.fixedMonthly || []).map((f, i) => (
                         <tr key={`fixed-${i}`} style={{ color: "var(--text-2)", fontSize: "0.8rem" }}>
                           <td colSpan={7} style={{ paddingLeft: "1rem" }}>{f.label} <span style={{ color: "var(--text-3)" }}>(fixed/mo)</span></td>
