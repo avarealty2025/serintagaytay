@@ -19,6 +19,7 @@ interface Booking {
   parkingFeeType: string;
   parkingSlot: string | null;
   notes: string | null;
+  cleaningFee?: number;
 }
 
 interface Expense {
@@ -254,16 +255,18 @@ export default function UnitReportPage() {
         fetch("/api/units").then((r) => r.json()).catch(() => null),
       ]);
 
+      const unitPnl = (pnlRes.units || []).find((u: PnlUnit) => u.unitId === unitId);
+      setPnl(unitPnl || null);
+
+      const cleaningFee = unitPnl?.cleaningFeePerBooking || 0;
       const unitBookings = (bookingsRes.bookings || [])
         .filter((b: Booking) => b.unitId === unitId)
+        .map((b: Booking) => ({ ...b, cleaningFee: b.source === "block" ? 0 : cleaningFee }))
         .sort((a: Booking, b: Booking) => b.checkIn.localeCompare(a.checkIn));
       setAllBookings(unitBookings);
 
       const unitExpenses = (expensesRes || []).filter((e: Expense) => e.unitId === unitId);
       setAllExpenses(unitExpenses);
-
-      const unitPnl = (pnlRes.units || []).find((u: PnlUnit) => u.unitId === unitId);
-      setPnl(unitPnl || null);
 
       if (unitsRes) {
         const u = (Array.isArray(unitsRes) ? unitsRes : unitsRes.units || []).find((u: UnitInfo) => u.id === unitId);
@@ -635,9 +638,22 @@ export default function UnitReportPage() {
         <>
           {bookingMonths.map((month) => {
             const monthRows = byMonth.get(month)!;
-            const monthTotal = monthRows.reduce((s, r) => s + r.grossAmount, 0);
             const mParts = month.split("-");
             const monthLabel = ["January","February","March","April","May","June","July","August","September","October","November","December"][Number(mParts[1]) - 1] + " " + mParts[0];
+
+            const monthUnitAmt = monthRows.reduce((s, r) => {
+              const nights = Math.max(0, nightsBetween(r.checkIn, r.checkOut));
+              const pAmt = r.parkingFee > 0 ? (r.parkingFeeType === "per_night" ? r.parkingFee * nights : r.parkingFee) : 0;
+              return s + Math.max(0, r.grossAmount - pAmt);
+            }, 0);
+            const monthCleaning = monthRows.reduce((s, r) => s + (r.cleaningFee || 0), 0);
+            const monthParkingAmt = monthRows.reduce((s, r) => {
+              const nights = Math.max(0, nightsBetween(r.checkIn, r.checkOut));
+              return s + (r.parkingFee > 0 ? (r.parkingFeeType === "per_night" ? r.parkingFee * nights : r.parkingFee) : 0);
+            }, 0);
+            const monthTotal = monthRows.reduce((s, r) => s + r.grossAmount, 0);
+
+            const monthExpenses = expenses.filter((e) => e.date.startsWith(month)).reduce((s, e) => s + e.amount, 0);
 
             return (
               <div className="panel" key={month} style={{ marginBottom: "1rem" }}>
@@ -655,7 +671,11 @@ export default function UnitReportPage() {
                         <th className="tar">Nights</th>
                         <th className="tar">Pax</th>
                         <th>Source</th>
-                        <th className="tar">Amount</th>
+                        <th>Parking</th>
+                        <th className="tar">Unit Amt</th>
+                        <th className="tar">Cleaning</th>
+                        <th className="tar">Parking Amt</th>
+                        <th className="tar">Total</th>
                         <th>Balance</th>
                         <th>Status</th>
                         <th>Notes</th>
@@ -666,6 +686,8 @@ export default function UnitReportPage() {
                       {monthRows.map((b) => {
                         let nights = 0;
                         try { nights = nightsBetween(b.checkIn, b.checkOut); } catch { /* skip */ }
+                        const pAmt = b.parkingFee > 0 ? (b.parkingFeeType === "per_night" ? b.parkingFee * nights : b.parkingFee) : 0;
+                        const unitAmt = Math.max(0, b.grossAmount - pAmt);
                         const bal = b.grossAmount - b.amountPaid;
                         return (
                           <tr key={b.id}>
@@ -683,7 +705,11 @@ export default function UnitReportPage() {
                                 {SOURCE_LABEL[b.source || "unknown"] || b.source}
                               </span>
                             </td>
-                            <td className="tar mono" style={{ fontWeight: 600 }}>{b.grossAmount > 0 ? fmt(b.grossAmount) : "—"}</td>
+                            <td style={{ fontSize: "0.75rem" }}>{b.parkingSlot || "—"}</td>
+                            <td className="tar mono">{unitAmt > 0 ? fmt(unitAmt) : "0"}</td>
+                            <td className="tar mono">{b.cleaningFee ? fmt(b.cleaningFee) : "0"}</td>
+                            <td className="tar mono">{pAmt > 0 ? fmt(pAmt) : "0"}</td>
+                            <td className="tar mono" style={{ fontWeight: 600 }}>{b.grossAmount > 0 ? fmt(b.grossAmount) : "0"}</td>
                             <td>
                               {b.grossAmount <= 0 ? <span style={{ color: "var(--text-3)", fontSize: "0.72rem" }}>—</span> :
                                 bal <= 0 ? <span style={{ fontSize: "0.68rem", fontWeight: 600, color: "#fff", background: "var(--good)", padding: "0.12rem 0.4rem", borderRadius: 9, display: "inline-block" }}>Paid</span> :
@@ -708,8 +734,23 @@ export default function UnitReportPage() {
                     </tbody>
                     <tfoot>
                       <tr style={{ fontWeight: 700, borderTop: "2px solid var(--line)" }}>
-                        <td colSpan={6}>Subtotal</td>
+                        <td colSpan={7}>Subtotal</td>
+                        <td className="tar mono">{fmt(monthUnitAmt)}</td>
+                        <td className="tar mono">{fmt(monthCleaning)}</td>
+                        <td className="tar mono">{fmt(monthParkingAmt)}</td>
                         <td className="tar mono">{fmt(monthTotal)}</td>
+                        <td colSpan={4}></td>
+                      </tr>
+                      <tr style={{ fontWeight: 700, color: "var(--crit, #c0392b)" }}>
+                        <td colSpan={7}>Total Expenses</td>
+                        <td colSpan={3}></td>
+                        <td className="tar mono">{fmt(monthExpenses)}</td>
+                        <td colSpan={4}></td>
+                      </tr>
+                      <tr style={{ fontWeight: 700, color: monthTotal - monthExpenses >= 0 ? "var(--good, #27ae60)" : "var(--crit, #c0392b)" }}>
+                        <td colSpan={7}>Net</td>
+                        <td colSpan={3}></td>
+                        <td className="tar mono">{monthTotal - monthExpenses >= 0 ? "+" : ""}{fmt(monthTotal - monthExpenses)}</td>
                         <td colSpan={4}></td>
                       </tr>
                     </tfoot>
