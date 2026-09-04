@@ -347,7 +347,7 @@ export default function UnitReportPage() {
 
   // Revenue by source for chart
   const sourceEntries = Object.entries(pnl?.revenueBySource || {}).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
-  const maxSourceRev = sourceEntries.length > 0 ? sourceEntries[0][1] : 0;
+  const maxSourceRev = sourceEntries.length > 0 ? sourceEntries[0]![1] : 0;
 
   // Expense breakdown
   const expByCategory = pnl?.expensesByCategory || {};
