@@ -16,12 +16,18 @@ export async function GET(
     return new NextResponse("Not found", { status: 404 });
   }
 
+  const EXCLUDED = ["cancelled", "payment_rejected", "expired"];
   const { bookings } = await getBookings();
-  const unitBookings = bookings.filter((b) => b.unitId === unit.id);
+  const unitBookings = bookings.filter(
+    (b) => b.unitId === unit.id && !EXCLUDED.includes(b.status),
+  );
 
   const events = unitBookings.map((b) => ({
     uid: `${b.id}@serin-pms`,
-    summary: b.source === "block" ? "Blocked" : "Reserved",
+    summary:
+      b.source === "block" || b.status === "blocked"
+        ? "Not available"
+        : "Reserved",
     checkIn: b.checkIn,
     checkOut: b.checkOut,
   }));

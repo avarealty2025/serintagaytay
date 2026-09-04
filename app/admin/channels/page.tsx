@@ -469,10 +469,15 @@ export default function ChannelsPage() {
       <div className="form-panel" style={{ marginTop: "1.5rem" }}>
         <h2>Export to OTA Platforms</h2>
         <div className="form-body">
-          <p style={{ fontSize: "0.85rem", color: "var(--text-2)", margin: "0 0 1rem" }}>
+          <p style={{ fontSize: "0.85rem", color: "var(--text-2)", margin: "0 0 0.5rem" }}>
             Import these iCal URLs into Airbnb / Booking.com / Agoda so they see your direct bookings
             and block those dates automatically (two-way sync).
           </p>
+          <ul style={{ fontSize: "0.85rem", color: "var(--text-2)", margin: "0 0 1rem", paddingLeft: "1.25rem" }}>
+            <li><strong>Airbnb:</strong> Listing &rarr; Calendar &rarr; Availability &rarr; Import Calendar &rarr; paste URL</li>
+            <li><strong>Agoda:</strong> Property &rarr; Rate &amp; Availability &rarr; iCal &rarr; Import URL</li>
+            <li>When you block or unblock dates here, OTAs will pick it up on their next sync (usually every 1-4 hours).</li>
+          </ul>
           {activeUnits.map((unit) => {
             const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
             const token = unit.id.replace(/[^a-z0-9]/g, "");

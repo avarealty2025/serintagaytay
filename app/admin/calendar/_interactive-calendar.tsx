@@ -143,6 +143,7 @@ export function InteractiveCalendar({
             guest: "Blocked",
             source: "block",
             status: "pending_payment",
+            notes: null,
           },
         ]);
         setPopup(null);
@@ -393,8 +394,7 @@ export function InteractiveCalendar({
                       borderRadius: 4, color: "var(--text-2)",
                     }}>
                       Synced from <strong>{srcLabel}</strong> calendar.
-                      Unblocking here will delete it from our system.
-                      Update the block on {srcLabel} to sync changes back.
+                      Unblocking here will remove it and sync back to {srcLabel} via the export feed.
                     </div>
                   )}
 
