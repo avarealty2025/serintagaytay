@@ -203,6 +203,68 @@ function HorizBar({ label, value, max, color }: { label: string; value: number; 
   );
 }
 
+function InlineCell({ value, onSave, type = "text", options, align, mono, width }: {
+  value: string | number;
+  onSave: (v: string | number) => void;
+  type?: "text" | "number" | "date" | "select";
+  options?: { value: string; label: string }[];
+  align?: string;
+  mono?: boolean;
+  width?: string;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [val, setVal] = useState(String(value ?? ""));
+
+  function save() {
+    const newVal = type === "number" ? (Number(val) || 0) : val;
+    if (newVal !== value) onSave(newVal);
+    setEditing(false);
+  }
+
+  if (!editing) {
+    const display = type === "select" && options
+      ? options.find(o => o.value === String(value))?.label || String(value)
+      : String(value || "—");
+    return (
+      <span
+        onClick={(e) => { e.stopPropagation(); setVal(String(value ?? "")); setEditing(true); }}
+        style={{ cursor: "pointer", borderBottom: "1px dashed var(--text-3)", fontFamily: mono ? "var(--mono)" : "inherit", textAlign: align as never }}
+        title="Click to edit"
+      >
+        {display}
+      </span>
+    );
+  }
+
+  if (type === "select" && options) {
+    return (
+      <select
+        value={val}
+        onChange={e => { setVal(e.target.value); }}
+        onBlur={save}
+        autoFocus
+        style={{ fontSize: "0.75rem", padding: "0.1rem 0.2rem", border: "1px solid var(--accent)", borderRadius: 3, width: width || "auto" }}
+      >
+        {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+      </select>
+    );
+  }
+
+  return (
+    <input
+      type={type}
+      value={val}
+      onChange={e => setVal(e.target.value)}
+      autoFocus
+      min={type === "number" ? 0 : undefined}
+      step={type === "number" ? 100 : undefined}
+      style={{ width: width || (type === "date" ? "8rem" : type === "number" ? "5rem" : "6rem"), fontSize: "0.75rem", padding: "0.1rem 0.2rem", border: "1px solid var(--accent)", borderRadius: 3, textAlign: (align || (type === "number" ? "right" : "left")) as never, fontFamily: mono ? "var(--mono)" : "inherit" }}
+      onKeyDown={e => { if (e.key === "Enter") save(); if (e.key === "Escape") setEditing(false); }}
+      onBlur={save}
+    />
+  );
+}
+
 function InlineAmountEdit({ value, onSave }: { value: number; onSave: (v: number) => void }) {
   const [editing, setEditing] = useState(false);
   const [val, setVal] = useState(String(value || ""));
@@ -371,6 +433,17 @@ export default function UnitReportPage() {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ key, value }),
+      });
+      fetchData();
+    } catch { /* ignore */ }
+  }
+
+  async function updateBookingField(bookingId: string, field: string, value: string | number) {
+    try {
+      await fetch(`/api/bookings/${bookingId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [field]: value }),
       });
       fetchData();
     } catch { /* ignore */ }
@@ -894,39 +967,56 @@ export default function UnitReportPage() {
                         const pAmt = b.parkingFee > 0 ? (b.parkingFeeType === "per_night" ? b.parkingFee * nights : b.parkingFee) : 0;
                         const unitAmt = Math.max(0, b.grossAmount - pAmt);
                         const bal = b.grossAmount - b.amountPaid;
+                        const sourceOptions = Object.entries(SOURCE_LABEL).map(([v, l]) => ({ value: v, label: l }));
+                        const statusOptions = Object.entries(STATUS_LABEL).map(([v, l]) => ({ value: v, label: l }));
                         return (
                           <tr key={b.id}>
-                            <td style={{ fontWeight: 600 }}>{b.source === "block" ? "Blocked" : b.guest || "(no name)"}</td>
-                            <td className="mono" style={{ fontSize: "0.78rem" }}>{b.checkIn}</td>
-                            <td className="mono" style={{ fontSize: "0.78rem" }}>{b.checkOut}</td>
+                            <td style={{ fontWeight: 600 }}>
+                              {b.source === "block" ? "Blocked" : (
+                                <InlineCell value={b.guest || ""} onSave={(v) => updateBookingField(b.id, "guestName", v)} width="8rem" />
+                              )}
+                            </td>
+                            <td className="mono" style={{ fontSize: "0.78rem" }}>
+                              <InlineCell value={b.checkIn} type="date" onSave={(v) => updateBookingField(b.id, "checkIn", v)} mono />
+                            </td>
+                            <td className="mono" style={{ fontSize: "0.78rem" }}>
+                              <InlineCell value={b.checkOut} type="date" onSave={(v) => updateBookingField(b.id, "checkOut", v)} mono />
+                            </td>
                             <td className="tar mono">{nights}</td>
-                            <td className="tar mono">{b.guests || "—"}</td>
-                            <td>
-                              <span style={{
-                                fontSize: "0.68rem", fontWeight: 600, padding: "0.12rem 0.4rem",
-                                borderRadius: 9, color: "#fff",
-                                background: SOURCE_COLORS[b.source || "unknown"] || "#95a5a6",
-                              }}>
-                                {SOURCE_LABEL[b.source || "unknown"] || b.source}
-                              </span>
+                            <td className="tar mono">
+                              <InlineCell value={b.guests || 0} type="number" onSave={(v) => updateBookingField(b.id, "guests", v)} mono align="right" width="3rem" />
                             </td>
-                            <td style={{ fontSize: "0.75rem" }}>{b.parkingSlot || "—"}</td>
-                            <td className="tar mono">{unitAmt > 0 ? fmt(unitAmt) : "0"}</td>
+                            <td>
+                              <InlineCell value={b.source || "unknown"} type="select" options={sourceOptions} onSave={(v) => updateBookingField(b.id, "source", v)} />
+                            </td>
+                            <td style={{ fontSize: "0.75rem" }}>
+                              <InlineCell value={b.parkingSlot || ""} onSave={(v) => updateBookingField(b.id, "parkingSlot", v)} width="4rem" />
+                            </td>
+                            <td className="tar mono">
+                              <InlineCell value={unitAmt} type="number" onSave={(v) => updateBookingField(b.id, "grossAmount", Number(v) + pAmt)} mono align="right" width="5rem" />
+                            </td>
                             <td className="tar mono">{b.cleaningFee ? fmt(b.cleaningFee) : "0"}</td>
-                            <td className="tar mono">{pAmt > 0 ? fmt(pAmt) : "0"}</td>
-                            <td className="tar mono" style={{ fontWeight: 600 }}>{b.grossAmount > 0 ? fmt(b.grossAmount) : "0"}</td>
-                            <td>
-                              {b.grossAmount <= 0 ? <span style={{ color: "var(--text-3)", fontSize: "0.72rem" }}>—</span> :
-                                bal <= 0 ? <span style={{ fontSize: "0.68rem", fontWeight: 600, color: "#fff", background: "var(--good)", padding: "0.12rem 0.4rem", borderRadius: 9, display: "inline-block" }}>Paid</span> :
-                                <span style={{ fontSize: "0.68rem", fontWeight: 600, color: "#fff", background: "var(--crit, #c0392b)", padding: "0.12rem 0.4rem", borderRadius: 9, display: "inline-block" }}>{fmt(bal)}</span>}
+                            <td className="tar mono">
+                              <InlineCell value={b.parkingFee || 0} type="number" onSave={(v) => updateBookingField(b.id, "parkingFee", v)} mono align="right" width="4rem" />
+                            </td>
+                            <td className="tar mono" style={{ fontWeight: 600 }}>
+                              <InlineCell value={b.grossAmount} type="number" onSave={(v) => updateBookingField(b.id, "grossAmount", v)} mono align="right" width="5rem" />
+                            </td>
+                            <td className="tar">
+                              {b.grossAmount <= 0 ? <span style={{ color: "var(--text-3)", fontSize: "0.72rem" }}>—</span> : (
+                                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2 }}>
+                                  <InlineCell value={b.amountPaid} type="number" onSave={(v) => updateBookingField(b.id, "amountPaid", v)} mono align="right" width="5rem" />
+                                  {bal <= 0
+                                    ? <span style={{ fontSize: "0.62rem", fontWeight: 600, color: "#fff", background: "var(--good)", padding: "0.08rem 0.35rem", borderRadius: 7, display: "inline-block" }}>Paid</span>
+                                    : <span style={{ fontSize: "0.62rem", fontWeight: 600, color: "var(--crit, #c0392b)" }}>Bal: {fmt(bal)}</span>}
+                                </div>
+                              )}
                             </td>
                             <td>
-                              <span style={{ fontSize: "0.68rem", fontWeight: 600, color: "var(--text-2)" }}>
-                                {STATUS_LABEL[b.status] || b.status}
-                              </span>
+                              <InlineCell value={b.status} type="select" options={statusOptions} onSave={(v) => updateBookingField(b.id, "status", v)} />
                             </td>
-                            <td style={{ fontSize: "0.72rem", color: "var(--text-3)", maxWidth: "8rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                              {b.notes || ""}
+                            <td style={{ fontSize: "0.72rem", maxWidth: "8rem" }}>
+                              <InlineCell value={b.notes || ""} onSave={(v) => updateBookingField(b.id, "notes", v)} width="7rem" />
                             </td>
                             <td>
                               <Link href={`/admin/bookings/${b.id}/edit`} style={{ fontSize: "0.72rem", color: "var(--accent)", fontWeight: 600, textDecoration: "none" }}>
