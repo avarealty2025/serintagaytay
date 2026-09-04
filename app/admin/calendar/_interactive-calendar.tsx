@@ -25,8 +25,8 @@ interface CalendarUnit {
 const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 function dayOfWeek(d: string): number {
-  const [y, m, day] = d.split("-").map(Number);
-  return new Date(Date.UTC(y, m - 1, day)).getUTCDay();
+  const parts = d.split("-").map(Number);
+  return new Date(Date.UTC(parts[0]!, parts[1]! - 1, parts[2]!)).getUTCDay();
 }
 
 function nightsBetween(a: string, b: string): number {
