@@ -220,9 +220,9 @@ export default function UnitReportPage() {
   const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
   function navMonth(dir: number) {
-    const [y, m] = currentMonth.split("-").map(Number);
-    let nm = m + dir;
-    let ny = y;
+    const parts = currentMonth.split("-").map(Number);
+    let nm = parts[1]! + dir;
+    let ny = parts[0]!;
     if (nm < 1) { nm = 12; ny--; }
     if (nm > 12) { nm = 1; ny++; }
     setCurrentMonth(`${ny}-${String(nm).padStart(2, "0")}`);
