@@ -11,6 +11,7 @@ interface CalendarBooking {
   guest: string;
   source: string | null;
   status: string;
+  notes: string | null;
 }
 
 interface CalendarUnit {
@@ -269,16 +270,16 @@ export function InteractiveCalendar({
                   return (
                     <div
                       key={b.id}
-                      className={`bar ${b.source ?? "unknown"}`}
+                      className={`bar ${b.source === "block" || b.status === "blocked" ? "block" : b.source ?? "unknown"}`}
                       style={{
                         gridRow: r + 2,
                         gridColumn: `${from + 2} / ${to + 2}`,
                         cursor: "pointer",
                       }}
-                      title={`${b.source === "block" ? "Blocked" : b.guest || "(no name)"} — ${b.checkIn} to ${b.checkOut}\nClick to ${b.source === "block" ? "unblock" : "edit"}`}
+                      title={`${b.source === "block" || b.status === "blocked" ? (() => { const m = b.notes?.match(/^Blocked on (\w[\w.]*)/i); return m ? `Blocked (${m[1]})` : "Blocked"; })() : b.guest || "(no name)"} — ${b.checkIn} to ${b.checkOut}\nClick to edit/unblock`}
                       onClick={(e) => handleBarClick(e, b, unitLabel)}
                     >
-                      {b.source === "block" ? "Blocked" : b.guest || "(no name)"}
+                      {b.source === "block" || b.status === "blocked" ? (() => { const m = b.notes?.match(/^Blocked on (\w[\w.]*)/i); return m ? `Blocked (${m[1]})` : "Blocked"; })() : b.guest || "(no name)"}
                     </div>
                   );
                 })}
@@ -368,59 +369,74 @@ export function InteractiveCalendar({
               </>
             )}
 
-            {popup.type === "bar" && popup.booking && (
-              <>
-                <h3 style={{ margin: "0 0 0.25rem", fontSize: "0.85rem" }}>
-                  {popup.booking.source === "block"
-                    ? `Blocked — ${popup.unitLabel}`
-                    : `${popup.booking.guest || "(no name)"} — ${popup.unitLabel}`}
-                </h3>
-                <div style={{ fontSize: "0.72rem", color: "var(--text-3)", marginBottom: "0.75rem" }}>
-                  {popup.booking.checkIn} to {popup.booking.checkOut} &bull;{" "}
-                  {nightsBetween(popup.booking.checkIn, popup.booking.checkOut)} nights
-                </div>
+            {popup.type === "bar" && popup.booking && (() => {
+              const isBlock = popup.booking!.source === "block" || popup.booking!.status === "blocked";
+              const syncMatch = popup.booking!.notes?.match(/^Blocked on (\w[\w.]*)/i);
+              const isSynced = isBlock && !!syncMatch;
+              const srcLabel = isSynced ? syncMatch![1] : (popup.booking!.source ? popup.booking!.source.charAt(0).toUpperCase() + popup.booking!.source.slice(1) : "");
+              return (
+                <>
+                  <h3 style={{ margin: "0 0 0.25rem", fontSize: "0.85rem" }}>
+                    {isBlock
+                      ? `Blocked${isSynced ? ` (from ${srcLabel})` : ""} — ${popup.unitLabel}`
+                      : `${popup.booking!.guest || "(no name)"} — ${popup.unitLabel}`}
+                  </h3>
+                  <div style={{ fontSize: "0.72rem", color: "var(--text-3)", marginBottom: "0.5rem" }}>
+                    {popup.booking!.checkIn} to {popup.booking!.checkOut} &bull;{" "}
+                    {nightsBetween(popup.booking!.checkIn, popup.booking!.checkOut)} nights
+                  </div>
 
-                <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end" }}>
-                  <button
-                    className="btn btn-sm"
-                    style={{ background: "var(--surface-2)", color: "var(--text)" }}
-                    onClick={() => setPopup(null)}
-                  >
-                    Close
-                  </button>
-                  {popup.booking.source === "block" ? (
+                  {isSynced && (
+                    <div style={{
+                      fontSize: "0.72rem", padding: "0.4rem 0.6rem", marginBottom: "0.75rem",
+                      background: "color-mix(in srgb, var(--warn, #f39c12) 12%, var(--surface))",
+                      borderRadius: 4, color: "var(--text-2)",
+                    }}>
+                      Synced from <strong>{srcLabel}</strong> calendar.
+                      Unblocking here will delete it from our system.
+                      Update the block on {srcLabel} to sync changes back.
+                    </div>
+                  )}
+
+                  <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end", flexWrap: "wrap" }}>
                     <button
                       className="btn btn-sm"
-                      style={{ background: "var(--crit, #c0392b)", color: "#fff" }}
-                      disabled={saving}
-                      onClick={() => handleUnblock(popup.booking!.id)}
+                      style={{ background: "var(--surface-2)", color: "var(--text)" }}
+                      onClick={() => setPopup(null)}
                     >
-                      {saving ? "Unblocking..." : "Unblock"}
+                      Close
                     </button>
-                  ) : (
-                    <a
-                      href={`/admin/bookings/${popup.booking.id}/edit`}
-                      className="btn btn-sm"
-                      style={{ background: "var(--accent)", color: "var(--accent-ink)", textDecoration: "none" }}
-                    >
-                      Edit Booking
-                    </a>
-                  )}
-                  <a
-                    href={`/admin/bookings/${popup.booking.id}/edit`}
-                    className="btn btn-sm"
-                    style={{
-                      background: "var(--accent)",
-                      color: "var(--accent-ink)",
-                      textDecoration: "none",
-                      display: popup.booking.source === "block" ? "inline-flex" : "none",
-                    }}
-                  >
-                    Edit Dates
-                  </a>
-                </div>
-              </>
-            )}
+                    {isBlock ? (
+                      <>
+                        <a
+                          href={`/admin/bookings/${popup.booking!.id}/edit`}
+                          className="btn btn-sm"
+                          style={{ background: "var(--accent)", color: "var(--accent-ink)", textDecoration: "none" }}
+                        >
+                          Edit Details
+                        </a>
+                        <button
+                          className="btn btn-sm"
+                          style={{ background: "var(--crit, #c0392b)", color: "#fff" }}
+                          disabled={saving}
+                          onClick={() => handleUnblock(popup.booking!.id)}
+                        >
+                          {saving ? "Unblocking..." : "Unblock"}
+                        </button>
+                      </>
+                    ) : (
+                      <a
+                        href={`/admin/bookings/${popup.booking!.id}/edit`}
+                        className="btn btn-sm"
+                        style={{ background: "var(--accent)", color: "var(--accent-ink)", textDecoration: "none" }}
+                      >
+                        Edit Booking
+                      </a>
+                    )}
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </div>
       )}

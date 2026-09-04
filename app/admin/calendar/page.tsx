@@ -35,6 +35,7 @@ export default async function CalendarPage({
       guest: b.guest,
       source: b.source,
       status: b.status,
+      notes: b.notes ?? null,
     }));
 
   const calUnits = active.map((u) => ({

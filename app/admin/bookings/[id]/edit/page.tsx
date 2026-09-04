@@ -192,7 +192,9 @@ export default function EditBookingPage() {
     }
   }
 
-  const isBlock = source === "block";
+  const isBlock = source === "block" || status === "blocked";
+  const isSyncedBlock = isBlock && source !== "block";
+  const syncSource = source ? source.charAt(0).toUpperCase() + source.slice(1) : "";
   const unit = active.find((u) => u.id === unitId);
   const unitLabel = unit ? `${unit.tower}-${unit.code}${unit.buildingId === "east" ? " E" : ""}` : unitId;
 
@@ -229,6 +231,13 @@ export default function EditBookingPage() {
           </Link>
         </div>
       </div>
+
+      {isSyncedBlock && (
+        <div className="notice" style={{ background: "color-mix(in srgb, var(--warn, #f39c12) 15%, var(--surface))", border: "1px solid var(--warn, #f39c12)", marginBottom: "1rem", padding: "0.75rem 1rem", borderRadius: 6 }}>
+          <strong>Synced from {syncSource}</strong> — This block was imported from {syncSource} calendar sync.
+          You can edit details or unblock it here. To sync changes back, update the availability on {syncSource} directly.
+        </div>
+      )}
 
       {success && (
         <div className="notice" style={{ background: "var(--good)", color: "#fff", marginBottom: "1rem" }}>
