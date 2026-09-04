@@ -201,6 +201,44 @@ function HorizBar({ label, value, max, color }: { label: string; value: number; 
   );
 }
 
+function InlineAmountEdit({ value, onSave }: { value: number; onSave: (v: number) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [val, setVal] = useState(String(value || ""));
+
+  function save() {
+    onSave(Number(val) || 0);
+    setEditing(false);
+  }
+
+  if (!editing) {
+    return (
+      <span
+        onClick={(e) => { e.stopPropagation(); setVal(String(value || "")); setEditing(true); }}
+        style={{ cursor: "pointer", borderBottom: "1px dashed var(--text-3)" }}
+        title="Click to edit"
+      >
+        {fmt(value)}
+      </span>
+    );
+  }
+
+  return (
+    <span style={{ display: "inline-flex", gap: "0.2rem", alignItems: "center" }} onClick={e => e.stopPropagation()}>
+      <input
+        type="number"
+        value={val}
+        onChange={e => setVal(e.target.value)}
+        autoFocus
+        min={0}
+        step={100}
+        style={{ width: "5rem", fontSize: "inherit", padding: "0.15rem 0.25rem", border: "1px solid var(--accent)", borderRadius: 3, textAlign: "right" }}
+        onKeyDown={e => { if (e.key === "Enter") save(); if (e.key === "Escape") setEditing(false); }}
+        onBlur={save}
+      />
+    </span>
+  );
+}
+
 export default function UnitReportPage() {
   const params = useParams();
   const unitId = params.unitId as string;
@@ -244,6 +282,8 @@ export default function UnitReportPage() {
   const [expNotes, setExpNotes] = useState("");
   const [expSaving, setExpSaving] = useState(false);
   const [editingExpId, setEditingExpId] = useState<string | null>(null);
+  const [editingFixed, setEditingFixed] = useState(false);
+  const [fixedRows, setFixedRows] = useState<{ label: string; amount: string }[]>([]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -319,6 +359,25 @@ export default function UnitReportPage() {
     setExpVendor(e.vendor || "");
     setExpNotes(e.notes || "");
     setShowExpForm(true);
+  }
+
+  async function saveSetting(key: string, value: unknown) {
+    try {
+      await fetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key, value }),
+      });
+      fetchData();
+    } catch { /* ignore */ }
+  }
+
+  async function saveFixedExpenses() {
+    const cleaned = fixedRows
+      .filter((r) => r.label.trim() && Number(r.amount) > 0)
+      .map((r) => ({ label: r.label.trim(), amount: Number(r.amount) }));
+    await saveSetting(`fixed_expenses:${unitId}`, cleaned);
+    setEditingFixed(false);
   }
 
   if (loading) {
@@ -636,6 +695,78 @@ export default function UnitReportPage() {
       {/* Bookings Tab */}
       {activeTab === "bookings" && (
         <>
+          {/* Monthly Expense Settings */}
+          <div className="panel" style={{ marginBottom: "1rem", padding: "1rem" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "2rem", flexWrap: "wrap" }}>
+              <div>
+                <h3 style={{ margin: "0 0 0.5rem", fontSize: "0.82rem", color: "var(--text-2)" }}>Cleaning Fee / Booking</h3>
+                <InlineAmountEdit
+                  value={pnl?.cleaningFeePerBooking || 0}
+                  onSave={(v) => saveSetting(`cleaning_fee_pnl:${unitId}`, v)}
+                />
+              </div>
+              <div style={{ flex: 1, minWidth: 200 }}>
+                <h3 style={{ margin: "0 0 0.5rem", fontSize: "0.82rem", color: "var(--text-2)" }}>Fixed Monthly Expenses</h3>
+                {!editingFixed ? (
+                  <div>
+                    {(pnl?.fixedMonthly || []).length > 0 ? (
+                      <div style={{ fontSize: "0.78rem" }}>
+                        {(pnl?.fixedMonthly || []).map((f, i) => (
+                          <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: "1rem", marginBottom: "0.2rem" }}>
+                            <span style={{ color: "var(--text-2)" }}>{f.label}</span>
+                            <span className="mono" style={{ color: "var(--crit, #c0392b)" }}>{fmt(f.amount)}</span>
+                          </div>
+                        ))}
+                        <div style={{ display: "flex", justifyContent: "space-between", marginTop: "0.3rem", paddingTop: "0.3rem", borderTop: "1px solid var(--line-soft)", fontWeight: 700 }}>
+                          <span>Total</span>
+                          <span className="mono" style={{ color: "var(--crit, #c0392b)" }}>{fmt(pnl?.fixedMonthlyTotal || 0)}/mo</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <p style={{ fontSize: "0.78rem", color: "var(--text-3)", margin: 0 }}>No fixed expenses set</p>
+                    )}
+                    <button
+                      onClick={() => {
+                        const items = pnl?.fixedMonthly || [];
+                        setFixedRows(items.length > 0
+                          ? items.map(i => ({ label: i.label, amount: String(i.amount) }))
+                          : ["Condo Dues", "Electricity", "Water", "Internet/Wi-Fi"].map(l => ({ label: l, amount: "" }))
+                        );
+                        setEditingFixed(true);
+                      }}
+                      style={{ fontSize: "0.72rem", padding: "0.2rem 0.5rem", background: "none", border: "1px dashed var(--line)", borderRadius: 4, cursor: "pointer", color: "var(--accent)", marginTop: "0.4rem" }}
+                    >
+                      {(pnl?.fixedMonthly || []).length > 0 ? "Edit" : "+ Add Fixed Expenses"}
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ background: "var(--surface-2)", borderRadius: 6, padding: "0.6rem" }}>
+                    {fixedRows.map((row, i) => (
+                      <div key={i} style={{ display: "flex", gap: "0.25rem", marginBottom: "0.25rem", alignItems: "center" }}>
+                        <input type="text" value={row.label} onChange={(e) => { const next = [...fixedRows]; next[i] = { ...next[i]!, label: e.target.value }; setFixedRows(next); }}
+                          placeholder="e.g. Condo Dues" list="fixed-exp-list"
+                          style={{ flex: 1, fontSize: "0.75rem", padding: "0.15rem 0.3rem", border: "1px solid var(--line)", borderRadius: 3 }} />
+                        <input type="number" value={row.amount} onChange={(e) => { const next = [...fixedRows]; next[i] = { ...next[i]!, amount: e.target.value }; setFixedRows(next); }}
+                          placeholder="0" min={0} step={100}
+                          style={{ width: "5rem", fontSize: "0.75rem", padding: "0.15rem 0.3rem", border: "1px solid var(--line)", borderRadius: 3, textAlign: "right" }} />
+                        <button onClick={() => setFixedRows(fixedRows.filter((_, j) => j !== i))}
+                          style={{ background: "none", border: "none", color: "var(--crit)", cursor: "pointer", fontSize: "0.9rem", padding: "0 0.15rem" }}>&times;</button>
+                      </div>
+                    ))}
+                    <datalist id="fixed-exp-list">{EXPENSE_CATEGORIES.map(c => <option key={c} value={c} />)}</datalist>
+                    <div style={{ display: "flex", gap: "0.3rem", marginTop: "0.3rem" }}>
+                      <button onClick={() => setFixedRows([...fixedRows, { label: "", amount: "" }])}
+                        style={{ fontSize: "0.65rem", padding: "0.15rem 0.4rem", background: "none", border: "1px dashed var(--line)", borderRadius: 3, cursor: "pointer", color: "var(--accent)" }}>+ Row</button>
+                      <button onClick={saveFixedExpenses}
+                        style={{ fontSize: "0.65rem", padding: "0.15rem 0.5rem", background: "var(--accent)", color: "#fff", border: "none", borderRadius: 3, cursor: "pointer" }}>Save</button>
+                      <button onClick={() => setEditingFixed(false)}
+                        style={{ fontSize: "0.65rem", padding: "0.15rem 0.4rem", background: "none", border: "1px solid var(--line)", borderRadius: 3, cursor: "pointer", color: "var(--text-3)" }}>Cancel</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
           {bookingMonths.map((month) => {
             const monthRows = byMonth.get(month)!;
             const mParts = month.split("-");
@@ -654,12 +785,18 @@ export default function UnitReportPage() {
             const monthTotal = monthRows.reduce((s, r) => s + r.grossAmount, 0);
 
             const monthExpenses = expenses.filter((e) => e.date.startsWith(month)).reduce((s, e) => s + e.amount, 0);
+            const fixedTotal = pnl?.fixedMonthlyTotal || 0;
+            const totalMonthExpenses = monthCleaning + fixedTotal + monthExpenses;
+            const monthNet = monthTotal - totalMonthExpenses;
 
             return (
               <div className="panel" key={month} style={{ marginBottom: "1rem" }}>
                 <h2>
                   {monthLabel}{" "}
                   <span className="hint">{monthRows.length} booking{monthRows.length !== 1 ? "s" : ""} &middot; {fmt(monthTotal)}</span>
+                  <span className="hint" style={{ marginLeft: "0.5rem", color: monthNet >= 0 ? "var(--good, #27ae60)" : "var(--crit, #c0392b)" }}>
+                    Net: {monthNet >= 0 ? "+" : ""}{fmt(monthNet)}
+                  </span>
                 </h2>
                 <div className="tbl-scroll">
                   <table className="tbl">
@@ -741,16 +878,47 @@ export default function UnitReportPage() {
                         <td className="tar mono">{fmt(monthTotal)}</td>
                         <td colSpan={4}></td>
                       </tr>
-                      <tr style={{ fontWeight: 700, color: "var(--crit, #c0392b)" }}>
-                        <td colSpan={7}>Total Expenses</td>
-                        <td colSpan={3}></td>
-                        <td className="tar mono">{fmt(monthExpenses)}</td>
+                      <tr style={{ borderTop: "1px solid var(--line)" }}>
+                        <td colSpan={7} style={{ fontWeight: 700, paddingTop: "0.6rem", fontSize: "0.82rem", color: "var(--crit, #c0392b)" }}>Expenses</td>
+                        <td colSpan={4}></td>
                         <td colSpan={4}></td>
                       </tr>
-                      <tr style={{ fontWeight: 700, color: monthTotal - monthExpenses >= 0 ? "var(--good, #27ae60)" : "var(--crit, #c0392b)" }}>
+                      {monthCleaning > 0 && (
+                        <tr style={{ color: "var(--text-2)", fontSize: "0.8rem" }}>
+                          <td colSpan={7} style={{ paddingLeft: "1rem" }}>
+                            Cleaning ({monthRows.filter(r => r.source !== "block").length} &times; {fmt(pnl?.cleaningFeePerBooking || 0)})
+                          </td>
+                          <td colSpan={3}></td>
+                          <td className="tar mono">{fmt(monthCleaning)}</td>
+                          <td colSpan={4}></td>
+                        </tr>
+                      )}
+                      {(pnl?.fixedMonthly || []).map((f, i) => (
+                        <tr key={`fixed-${i}`} style={{ color: "var(--text-2)", fontSize: "0.8rem" }}>
+                          <td colSpan={7} style={{ paddingLeft: "1rem" }}>{f.label} <span style={{ color: "var(--text-3)" }}>(fixed/mo)</span></td>
+                          <td colSpan={3}></td>
+                          <td className="tar mono">{fmt(f.amount)}</td>
+                          <td colSpan={4}></td>
+                        </tr>
+                      ))}
+                      {monthExpenses > 0 && (
+                        <tr style={{ color: "var(--text-2)", fontSize: "0.8rem" }}>
+                          <td colSpan={7} style={{ paddingLeft: "1rem" }}>Other Recorded Expenses</td>
+                          <td colSpan={3}></td>
+                          <td className="tar mono">{fmt(monthExpenses)}</td>
+                          <td colSpan={4}></td>
+                        </tr>
+                      )}
+                      <tr style={{ fontWeight: 700, color: "var(--crit, #c0392b)", borderTop: "1px solid var(--line)" }}>
+                        <td colSpan={7}>Total Expenses</td>
+                        <td colSpan={3}></td>
+                        <td className="tar mono">{fmt(totalMonthExpenses)}</td>
+                        <td colSpan={4}></td>
+                      </tr>
+                      <tr style={{ fontWeight: 700, borderTop: "2px solid var(--line)", color: monthNet >= 0 ? "var(--good, #27ae60)" : "var(--crit, #c0392b)" }}>
                         <td colSpan={7}>Net</td>
                         <td colSpan={3}></td>
-                        <td className="tar mono">{monthTotal - monthExpenses >= 0 ? "+" : ""}{fmt(monthTotal - monthExpenses)}</td>
+                        <td className="tar mono">{monthNet >= 0 ? "+" : ""}{fmt(monthNet)}</td>
                         <td colSpan={4}></td>
                       </tr>
                     </tfoot>
