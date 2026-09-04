@@ -56,7 +56,7 @@ function dbUnitToAppUnit(u: DbUnit): Unit {
 
 let _unitIdMap: Map<string, string> | null = null;
 
-async function getUnitIdMap(): Promise<Map<string, string>> {
+export async function getUnitIdMap(): Promise<Map<string, string>> {
   if (_unitIdMap) return _unitIdMap;
   const sb = getSupabaseAdmin();
   const { data } = await sb
@@ -132,6 +132,9 @@ export interface DbBooking {
   discountAmount: number;
   parkingFee: number;
   parkingFeeType: "per_night" | "one_time";
+  parkingSlot: string | null;
+  collectedBy: string | null;
+  collectedAt: string | null;
   createdAt: string;
 }
 
@@ -160,6 +163,9 @@ export async function getBookings(): Promise<{ bookings: DbBooking[]; problems: 
         discountAmount: 0,
         parkingFee: 0,
         parkingFeeType: "one_time" as const,
+        parkingSlot: null,
+        collectedBy: null,
+        collectedAt: null,
         createdAt: "",
       })),
       problems: sheet.problems,
@@ -182,7 +188,7 @@ export async function getBookings(): Promise<{ bookings: DbBooking[]; problems: 
           id: b.id, unitId: b.unitId, checkIn: b.checkIn, checkOut: b.checkOut,
           status: b.status, guest: b.guest, guestEmail: "", guestPhone: "",
           guests: b.guests, guestList: [], source: b.source,
-          grossAmount: 0, notes: null, proofPath: null, paymentType: "reservation" as const, amountPaid: 0, promoCodeId: null, discountAmount: 0, parkingFee: 0, parkingFeeType: "one_time" as const, createdAt: "",
+          grossAmount: 0, notes: null, proofPath: null, paymentType: "reservation" as const, amountPaid: 0, promoCodeId: null, discountAmount: 0, parkingFee: 0, parkingFeeType: "one_time" as const, parkingSlot: null, collectedBy: null, collectedAt: null, createdAt: "",
         })),
         problems: sheet.problems,
       };
@@ -212,6 +218,9 @@ export async function getBookings(): Promise<{ bookings: DbBooking[]; problems: 
           discountAmount: Number(row.discount_amount ?? 0),
           parkingFee: Number(row.parking_fee ?? 0),
           parkingFeeType: (row.parking_fee_type as "per_night" | "one_time") ?? "one_time",
+          parkingSlot: row.parking_slot ?? null,
+          collectedBy: row.collected_by ?? null,
+          collectedAt: row.collected_at ?? null,
           createdAt: row.created_at,
         };
       }),
@@ -224,7 +233,7 @@ export async function getBookings(): Promise<{ bookings: DbBooking[]; problems: 
         id: b.id, unitId: b.unitId, checkIn: b.checkIn, checkOut: b.checkOut,
         status: b.status, guest: b.guest, guestEmail: "", guestPhone: "",
         guests: b.guests, guestList: [], source: b.source,
-        grossAmount: 0, notes: null, proofPath: null, paymentType: "reservation" as const, amountPaid: 0, promoCodeId: null, discountAmount: 0, parkingFee: 0, parkingFeeType: "one_time" as const, createdAt: "",
+        grossAmount: 0, notes: null, proofPath: null, paymentType: "reservation" as const, amountPaid: 0, promoCodeId: null, discountAmount: 0, parkingFee: 0, parkingFeeType: "one_time" as const, parkingSlot: null, collectedBy: null, collectedAt: null, createdAt: "",
       })),
       problems: sheet.problems,
     };
@@ -322,6 +331,9 @@ export async function updateBooking(
     amountPaid: number;
     parkingFee: number;
     parkingFeeType: string;
+    parkingSlot: string;
+    collectedBy: string;
+    collectedAt: string;
   }>,
 ): Promise<{ error: string | null }> {
   if (!isSupabaseConfigured) return { error: "Supabase not configured" };
@@ -340,6 +352,9 @@ export async function updateBooking(
   if (data.amountPaid !== undefined) bookingUpdate.amount_paid = data.amountPaid;
   if (data.parkingFee !== undefined) bookingUpdate.parking_fee = data.parkingFee;
   if (data.parkingFeeType !== undefined) bookingUpdate.parking_fee_type = data.parkingFeeType;
+  if (data.parkingSlot !== undefined) bookingUpdate.parking_slot = data.parkingSlot || null;
+  if (data.collectedBy !== undefined) bookingUpdate.collected_by = data.collectedBy;
+  if (data.collectedAt !== undefined) bookingUpdate.collected_at = data.collectedAt;
   bookingUpdate.updated_at = new Date().toISOString();
 
   if (Object.keys(bookingUpdate).length > 1) {
@@ -578,6 +593,9 @@ export async function getGuest(id: string): Promise<DbGuestDetail | null> {
       discountAmount: Number(row.discount_amount ?? 0),
       parkingFee: Number(row.parking_fee ?? 0),
       parkingFeeType: (row.parking_fee_type as "per_night" | "one_time") ?? "one_time",
+      parkingSlot: row.parking_slot ?? null,
+      collectedBy: row.collected_by ?? null,
+      collectedAt: row.collected_at ?? null,
       createdAt: row.created_at,
     }));
 

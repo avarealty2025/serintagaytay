@@ -44,6 +44,9 @@ interface BookingRow {
   payment_type: string;
   amount_paid: number;
   discount_amount: number;
+  parking_fee: number;
+  parking_fee_type: string;
+  parking_slot: string | null;
   created_at: string;
   notes: string | null;
   guests: { name: string; email: string; phone: string };
@@ -65,7 +68,8 @@ async function getBooking(id: string): Promise<BookingRow | null> {
     .select(`
       id, unit_id, check_in, check_out, status, source,
       gross_amount, guests_count, payment_type, amount_paid,
-      discount_amount, created_at, notes,
+      discount_amount, parking_fee, parking_fee_type, parking_slot,
+      created_at, notes,
       guests!inner(name, email, phone)
     `)
     .eq("id", id)
@@ -89,6 +93,11 @@ function invoiceHtml(
   emailTpl: EmailTemplate | null,
 ): string {
   const nights = nightsBetween(b.check_in, b.check_out);
+  const parkingFee = b.parking_fee || 0;
+  const parkingTotal = parkingFee > 0
+    ? (b.parking_fee_type === "per_night" ? parkingFee * nights : parkingFee)
+    : 0;
+  const unitAmount = b.gross_amount - parkingTotal;
   const balance = b.gross_amount - (b.amount_paid || 0) - (b.discount_amount || 0);
   const ref = b.id.slice(0, 8).toUpperCase();
   const unit = getUnitLabel(b.unit_id);
@@ -216,9 +225,19 @@ function invoiceHtml(
             <span style="color:#888;font-size:12px">${formatDate(b.check_in)} — ${formatDate(b.check_out)}</span>
           </td>
           <td class="text-right">${nights} night${nights !== 1 ? "s" : ""}</td>
-          <td class="text-right">${formatPHP(b.gross_amount / nights)}</td>
-          <td class="text-right">${formatPHP(b.gross_amount)}</td>
+          <td class="text-right">${formatPHP(unitAmount / nights)}</td>
+          <td class="text-right">${formatPHP(unitAmount)}</td>
         </tr>
+        ${parkingTotal > 0 ? `
+        <tr>
+          <td>
+            <strong>Parking${b.parking_slot ? ` (Slot ${esc(b.parking_slot)})` : ""}</strong><br>
+            <span style="color:#888;font-size:12px">${b.parking_fee_type === "per_night" ? `${formatPHP(parkingFee)} × ${nights} night${nights !== 1 ? "s" : ""}` : "One-time fee"}</span>
+          </td>
+          <td class="text-right">${b.parking_fee_type === "per_night" ? `${nights}` : "1"}</td>
+          <td class="text-right">${formatPHP(parkingFee)}</td>
+          <td class="text-right">${formatPHP(parkingTotal)}</td>
+        </tr>` : ""}
         ${b.discount_amount > 0 ? `
         <tr>
           <td colspan="3">Discount</td>

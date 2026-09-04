@@ -1,18 +1,18 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Mark } from "../mark.tsx";
 import { Footer } from "../footer.tsx";
 import { UNITS, TAAL_VIEW_CODES } from "../../src/data/units.ts";
-import { getUnitCoverThumb } from "../../src/data/unit-photos.ts";
 import {
   quote,
   formatPHP,
   PricingError,
 } from "../../src/lib/pricing.ts";
-import { nightsBetween, addDays, toDateStr } from "../../src/lib/dates.ts";
-import type { PriceBreakdown } from "../../src/lib/types.ts";
+import { nightsBetween, addDays, toDateStr, rangesOverlap } from "../../src/lib/dates.ts";
+import type { PriceBreakdown, BookingRange } from "../../src/lib/types.ts";
+import { blocksDates } from "../../src/lib/types.ts";
 import { getSettings, type PaymentAccount } from "../../src/lib/settings.ts";
 import { Suspense } from "react";
 
@@ -39,6 +39,10 @@ function BookPageInner() {
   const active = UNITS.filter((u) => u.active);
   const settings = getSettings();
   const [paymentAccounts, setPaymentAccounts] = useState<PaymentAccount[]>(settings.payment.accounts ?? []);
+  const [covers, setCovers] = useState<Record<string, string>>({});
+  const [bookings, setBookings] = useState<BookingRange[]>([]);
+  const [searched, setSearched] = useState(false);
+  const [calendarUnit, setCalendarUnit] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/settings")
@@ -49,6 +53,37 @@ function BookPageInner() {
         }
       })
       .catch(() => {});
+
+    fetch("/api/bookings")
+      .then((r) => r.json())
+      .then((data: { bookings: BookingRange[] }) => {
+        if (data.bookings) setBookings(data.bookings);
+      })
+      .catch(() => {});
+
+    Promise.all(
+      active.map((u) =>
+        fetch(`/api/units/${u.id}/photos`)
+          .then((r) => r.json())
+          .then((photos: { url: string; thumb: string; isCover: boolean }[]) => {
+            if (!photos || photos.length === 0) return null;
+            const cover = photos.find((p) => p.isCover) ?? photos[0];
+            return { id: u.id, thumb: cover!.thumb || cover!.url };
+          })
+          .catch(() => null),
+      ),
+    ).then((results) => {
+      const map: Record<string, string> = {};
+      for (const r of results) {
+        if (r) map[r.id] = r.thumb;
+      }
+      setCovers(map);
+    });
+
+    if (sp.get("checkIn") && sp.get("checkOut")) {
+      setSearched(true);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const [step, setStep] = useState<Step>("select");
@@ -81,16 +116,25 @@ function BookPageInner() {
   let nights = 0;
   try { nights = nightsBetween(checkIn, checkOut); } catch { /* skip */ }
 
+  const isUnitAvailable = useCallback((unitId: string, ci: string, co: string) => {
+    const blocking = bookings.filter(
+      (b) => b.unitId === unitId && blocksDates(b.status) && rangesOverlap(ci, co, b.checkIn, b.checkOut),
+    );
+    return blocking.length === 0;
+  }, [bookings]);
+
   const results = active.map((unit) => {
     let price: PriceBreakdown | null = null;
     let error: string | null = null;
     try { price = quote(unit, checkIn, checkOut, guests); } catch (e) {
       error = e instanceof PricingError ? e.message : "Not available";
     }
-    return { unit, price, error };
+    const available = isUnitAvailable(unit.id, checkIn, checkOut);
+    if (!available) error = "Already booked for these dates";
+    return { unit, price, error, available };
   });
 
-  const bookable = results.filter((r) => r.price && !r.price.requiresManualQuote && !r.error);
+  const bookable = results.filter((r) => r.price && !r.price.requiresManualQuote && !r.error && r.available);
 
   let selectedPrice: PriceBreakdown | null = null;
   if (selectedUnit) {
@@ -242,36 +286,52 @@ function BookPageInner() {
         {step === "select" && (
           <>
             <h2 className="book-title">Choose your dates and unit</h2>
-            <form className="searchbar" onSubmit={(e) => e.preventDefault()}>
+            <form className="searchbar" onSubmit={(e) => { e.preventDefault(); setSearched(true); }}>
               <div className="field">
                 <label htmlFor="checkIn">Check in</label>
-                <input type="date" id="checkIn" value={checkIn} min={today} onChange={(e) => setCheckIn(e.target.value)} />
+                <input type="date" id="checkIn" value={checkIn} min={today} onChange={(e) => { setCheckIn(e.target.value); setSearched(false); }} />
               </div>
               <div className="field">
                 <label htmlFor="checkOut">Check out</label>
-                <input type="date" id="checkOut" value={checkOut} min={checkIn} onChange={(e) => setCheckOut(e.target.value)} />
+                <input type="date" id="checkOut" value={checkOut} min={checkIn} onChange={(e) => { setCheckOut(e.target.value); setSearched(false); }} />
               </div>
               <div className="field">
                 <label htmlFor="guests">Guests</label>
-                <select id="guests" value={guests} onChange={(e) => setGuests(Number(e.target.value))}>
+                <select id="guests" value={guests} onChange={(e) => { setGuests(Number(e.target.value)); setSearched(false); }}>
                   {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
                     <option key={n} value={n}>{n} {n === 1 ? "guest" : "guests"}</option>
                   ))}
                 </select>
               </div>
+              <div className="field" style={{ display: "flex", alignItems: "flex-end" }}>
+                <button type="submit" className="btn" style={{ whiteSpace: "nowrap", padding: "0.55rem 1.5rem" }}>
+                  Search
+                </button>
+              </div>
             </form>
 
-            {nights > 0 && (
+            {searched && nights > 0 && (
               <p style={{ color: "var(--text-2)", margin: "0 0 1rem" }}>
-                <strong>{bookable.length}</strong> units available for {nights} {nights === 1 ? "night" : "nights"}
+                <strong>{bookable.length}</strong> unit{bookable.length !== 1 ? "s" : ""} available for {nights} {nights === 1 ? "night" : "nights"}
+                {results.filter((r) => !r.available && !r.error?.includes("Not available")).length > 0 && (
+                  <span style={{ color: "var(--text-3)", fontSize: "0.85rem" }}>
+                    {" "}({results.filter((r) => !r.available).length} booked)
+                  </span>
+                )}
+              </p>
+            )}
+
+            {!searched && nights > 0 && (
+              <p style={{ color: "var(--text-2)", margin: "0 0 1rem", textAlign: "center", padding: "1rem 0" }}>
+                Click <strong>Search</strong> to find available units for your dates.
               </p>
             )}
 
             <div className="book-units">
-              {bookable.map(({ unit, price }) => {
+              {(searched ? bookable : []).map(({ unit, price }) => {
                 const taal = TAAL_VIEW_CODES.has(unit.code);
                 const selected = unitId === unit.id;
-                const cover = getUnitCoverThumb(unit.id);
+                const cover = covers[unit.id];
                 return (
                   <div key={unit.id} className={`book-unit ${selected ? "selected" : ""}`}>
                     {cover && (
@@ -297,18 +357,93 @@ function BookPageInner() {
                         </div>
                       )}
                     </button>
-                    <Link
-                      href={`/units/${unit.id}`}
-                      target="_blank"
-                      className="bu-details-link"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      View details &amp; photos
-                    </Link>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 0.75rem 0.5rem" }}>
+                      <Link
+                        href={`/units/${unit.id}`}
+                        target="_blank"
+                        className="bu-details-link"
+                        onClick={(e) => e.stopPropagation()}
+                        style={{ margin: 0 }}
+                      >
+                        View details &amp; photos
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setCalendarUnit(calendarUnit === unit.id ? null : unit.id); }}
+                        style={{
+                          background: "none",
+                          border: "1px solid var(--line)",
+                          borderRadius: "6px",
+                          padding: "0.25rem 0.6rem",
+                          fontSize: "0.75rem",
+                          cursor: "pointer",
+                          color: "var(--accent)",
+                        }}
+                      >
+                        {calendarUnit === unit.id ? "Hide calendar" : "View availability"}
+                      </button>
+                    </div>
+                    {calendarUnit === unit.id && (
+                      <UnitAvailabilityCalendar unitId={unit.id} bookings={bookings} onSelectDates={(ci, co) => { setCheckIn(ci); setCheckOut(co); setSearched(true); }} />
+                    )}
                   </div>
                 );
               })}
             </div>
+
+            {/* Show all units with availability calendars when no search is active */}
+            {!searched && (
+              <div className="book-units">
+                {active.map((unit) => {
+                  const taal = TAAL_VIEW_CODES.has(unit.code);
+                  const cover = covers[unit.id];
+                  return (
+                    <div key={unit.id} className="book-unit">
+                      {cover && (
+                        <div className="bu-cover">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={cover} alt={unit.name ?? `${unit.tower}-${unit.code}`} />
+                        </div>
+                      )}
+                      <div className="bu-body" style={{ cursor: "default", padding: "0.75rem" }}>
+                        <div className="bu-head">
+                          <span className="bu-code">{unit.tower}-{unit.code} {unit.buildingId === "west" ? "West" : "East"}</span>
+                          {unit.name && <span className="bu-name">{unit.name}</span>}
+                        </div>
+                        <div className="bu-facts">
+                          <span>{TYPE_LABEL[unit.type]}</span>
+                          <span>Sleeps {unit.maxGuests}</span>
+                          <span>{taal ? "Taal view" : "Ridge side"}</span>
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 0.75rem 0.5rem" }}>
+                        <Link href={`/units/${unit.id}`} target="_blank" className="bu-details-link" style={{ margin: 0 }}>
+                          View details &amp; photos
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() => setCalendarUnit(calendarUnit === unit.id ? null : unit.id)}
+                          style={{
+                            background: "none",
+                            border: "1px solid var(--line)",
+                            borderRadius: "6px",
+                            padding: "0.25rem 0.6rem",
+                            fontSize: "0.75rem",
+                            cursor: "pointer",
+                            color: "var(--accent)",
+                          }}
+                        >
+                          {calendarUnit === unit.id ? "Hide calendar" : "View availability"}
+                        </button>
+                      </div>
+                      {calendarUnit === unit.id && (
+                        <UnitAvailabilityCalendar unitId={unit.id} bookings={bookings} onSelectDates={(ci, co) => { setCheckIn(ci); setCheckOut(co); setSearched(true); }} />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
 
             {unitId && (
               <div style={{ textAlign: "right", padding: "1rem 0 2rem" }}>
@@ -673,5 +808,112 @@ function BookPageInner() {
 
       <Footer />
     </>
+  );
+}
+
+const CAL_MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const CAL_DAYS = ["Su","Mo","Tu","We","Th","Fr","Sa"];
+
+function UnitAvailabilityCalendar({ unitId, bookings, onSelectDates }: {
+  unitId: string;
+  bookings: BookingRange[];
+  onSelectDates: (checkIn: string, checkOut: string) => void;
+}) {
+  const today = toDateStr(new Date());
+  const [monthOffset, setMonthOffset] = useState(0);
+
+  const now = new Date();
+  const viewYear = now.getFullYear() + Math.floor((now.getMonth() + monthOffset) / 12);
+  const viewMonth = ((now.getMonth() + monthOffset) % 12 + 12) % 12;
+
+  const firstDay = new Date(viewYear, viewMonth, 1).getDay();
+  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+
+  const unitBookings = bookings.filter((b) => b.unitId === unitId && blocksDates(b.status));
+
+  function isBooked(dateStr: string): boolean {
+    return unitBookings.some((b) => dateStr >= b.checkIn && dateStr < b.checkOut);
+  }
+
+  function handleDateClick(dateStr: string) {
+    if (isBooked(dateStr) || dateStr < today) return;
+    const co = addDays(dateStr, 2);
+    onSelectDates(dateStr, co);
+  }
+
+  const cells: React.ReactNode[] = [];
+  for (let i = 0; i < firstDay; i++) {
+    cells.push(<div key={`e-${i}`} style={{ width: "2rem", height: "2rem" }} />);
+  }
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${viewYear}-${String(viewMonth + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    const booked = isBooked(dateStr);
+    const past = dateStr < today;
+    const isToday = dateStr === today;
+    cells.push(
+      <div
+        key={dateStr}
+        onClick={() => handleDateClick(dateStr)}
+        style={{
+          width: "2rem",
+          height: "2rem",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          borderRadius: "4px",
+          fontSize: "0.75rem",
+          cursor: booked || past ? "default" : "pointer",
+          background: booked ? "#fce4e4" : isToday ? "color-mix(in srgb, var(--accent) 15%, transparent)" : "transparent",
+          color: booked ? "#c0392b" : past ? "var(--text-3)" : "var(--text-1)",
+          fontWeight: isToday ? 700 : 400,
+          textDecoration: booked ? "line-through" : "none",
+          opacity: past ? 0.5 : 1,
+        }}
+        title={booked ? "Booked" : past ? "Past date" : "Available — click to select"}
+      >
+        {d}
+      </div>,
+    );
+  }
+
+  return (
+    <div style={{ padding: "0.5rem 0.75rem 0.75rem", borderTop: "1px solid var(--line)" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
+        <button
+          type="button"
+          onClick={() => setMonthOffset(monthOffset - 1)}
+          disabled={monthOffset <= 0}
+          style={{ background: "none", border: "1px solid var(--line)", borderRadius: 4, cursor: "pointer", padding: "0.15rem 0.5rem", color: "var(--text-2)" }}
+        >
+          &lsaquo;
+        </button>
+        <span style={{ fontWeight: 600, fontSize: "0.85rem" }}>
+          {CAL_MONTHS[viewMonth]} {viewYear}
+        </span>
+        <button
+          type="button"
+          onClick={() => setMonthOffset(monthOffset + 1)}
+          disabled={monthOffset >= 11}
+          style={{ background: "none", border: "1px solid var(--line)", borderRadius: 4, cursor: "pointer", padding: "0.15rem 0.5rem", color: "var(--text-2)" }}
+        >
+          &rsaquo;
+        </button>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 2rem)", gap: "2px", justifyContent: "center" }}>
+        {CAL_DAYS.map((d) => (
+          <div key={d} style={{ textAlign: "center", fontSize: "0.65rem", fontWeight: 700, color: "var(--text-3)", height: "1.5rem", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            {d}
+          </div>
+        ))}
+        {cells}
+      </div>
+      <div style={{ display: "flex", gap: "1rem", justifyContent: "center", marginTop: "0.5rem", fontSize: "0.7rem", color: "var(--text-3)" }}>
+        <span><span style={{ display: "inline-block", width: 10, height: 10, background: "#fce4e4", border: "1px solid #ecc", borderRadius: 2, verticalAlign: "middle", marginRight: 3 }} /> Booked</span>
+        <span><span style={{ display: "inline-block", width: 10, height: 10, background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 2, verticalAlign: "middle", marginRight: 3 }} /> Available</span>
+      </div>
+      <p style={{ textAlign: "center", fontSize: "0.7rem", color: "var(--text-3)", margin: "0.35rem 0 0" }}>
+        Click an available date to search from that date
+      </p>
+    </div>
   );
 }

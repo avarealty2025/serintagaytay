@@ -14,12 +14,29 @@ interface UnitChannels {
   calendars: ChannelCalendar[];
 }
 
-interface SyncResult {
-  unitId: string;
+interface PreviewEvent {
+  unit: string;
   platform: string;
-  imported: number;
-  skipped: number;
-  errors: string[];
+  checkIn: string;
+  checkOut: string;
+  guest: string;
+  phone: string;
+  email: string;
+  pax: number;
+  payout: number;
+  summary: string;
+  description: string;
+  uid: string;
+  status: "new" | "exists" | "blocked";
+  notes: string;
+}
+
+interface EditableEvent extends PreviewEvent {
+  selected: boolean;
+  editGuest: string;
+  editPhone: string;
+  editPax: number;
+  editRate: number;
 }
 
 const PLATFORMS: { id: "airbnb" | "booking.com" | "agoda"; label: string; color: string }[] = [
@@ -34,15 +51,24 @@ function emptyCalendars(): ChannelCalendar[] {
   return PLATFORMS.map((p) => ({ platform: p.id, icalUrl: "", enabled: false }));
 }
 
+function unitLabel(unitId: string): string {
+  const u = activeUnits.find((x) => x.id === unitId);
+  return u ? `${u.tower}-${u.code}${u.buildingId === "east" ? " E" : ""}` : unitId;
+}
+
 export default function ChannelsPage() {
   const [configs, setConfigs] = useState<UnitChannels[]>([]);
   const [syncLog, setSyncLog] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [syncing, setSyncing] = useState<string | null>(null);
-  const [syncResults, setSyncResults] = useState<SyncResult[] | null>(null);
   const [status, setStatus] = useState<string | null>(null);
-  const [migrationNeeded, setMigrationNeeded] = useState(false);
+
+  const [previewing, setPreviewing] = useState(false);
+  const [previewEvents, setPreviewEvents] = useState<EditableEvent[] | null>(null);
+  const [previewCounts, setPreviewCounts] = useState<{ total: number; new: number; existing: number; blocked: number } | null>(null);
+
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<{ imported: number; skipped: number; errors: string[] } | null>(null);
 
   useEffect(() => {
     fetch("/api/channels")
@@ -65,24 +91,11 @@ export default function ChannelsPage() {
       if (existing) {
         return prev.map((c) =>
           c.unitId === unitId
-            ? {
-                ...c,
-                calendars: c.calendars.map((cal) =>
-                  cal.platform === platform ? { ...cal, ...patch } : cal,
-                ),
-              }
+            ? { ...c, calendars: c.calendars.map((cal) => cal.platform === platform ? { ...cal, ...patch } : cal) }
             : c,
         );
       }
-      return [
-        ...prev,
-        {
-          unitId,
-          calendars: emptyCalendars().map((cal) =>
-            cal.platform === platform ? { ...cal, ...patch } : cal,
-          ),
-        },
-      ];
+      return [...prev, { unitId, calendars: emptyCalendars().map((cal) => cal.platform === platform ? { ...cal, ...patch } : cal) }];
     });
   }
 
@@ -90,11 +103,7 @@ export default function ChannelsPage() {
     setSaving(true);
     setStatus(null);
     try {
-      const res = await fetch("/api/channels", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ configs }),
-      });
+      const res = await fetch("/api/channels", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ configs }) });
       if (!res.ok) throw new Error();
       setStatus("Saved");
       setTimeout(() => setStatus(null), 3000);
@@ -105,48 +114,87 @@ export default function ChannelsPage() {
     }
   }
 
-  async function handleSync(unitId?: string) {
-    setSyncing(unitId ?? "all");
-    setSyncResults(null);
-    setMigrationNeeded(false);
+  async function handlePreview() {
+    setPreviewing(true);
+    setPreviewEvents(null);
+    setPreviewCounts(null);
+    setImportResult(null);
     try {
-      const res = await fetch("/api/channels/sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(unitId ? { unitId } : {}),
-      });
+      const res = await fetch("/api/channels/sync-preview");
       const data = await res.json();
-      const results: SyncResult[] = data.results ?? [];
-      setSyncResults(results);
-
-      const hasExternalIdError = results.some((r) =>
-        r.errors.some((e) => e.includes("external_id")),
+      const events: PreviewEvent[] = data.events ?? [];
+      setPreviewCounts({ total: data.total, new: data.new, existing: data.existing, blocked: data.blocked });
+      setPreviewEvents(
+        events.map((e) => ({
+          ...e,
+          selected: e.status === "new" || e.status === "blocked",
+          editGuest: e.guest || "",
+          editPhone: e.phone || "",
+          editPax: e.pax || 2,
+          editRate: e.payout || 0,
+        })),
       );
-      if (hasExternalIdError) setMigrationNeeded(true);
-
-      // Refresh sync log
-      const logRes = await fetch("/api/channels");
-      const logData = await logRes.json();
-      setSyncLog(logData.syncLog ?? {});
     } catch {
-      setStatus("Sync failed");
+      setStatus("Preview failed — check iCal URLs");
     } finally {
-      setSyncing(null);
+      setPreviewing(false);
     }
   }
 
+  async function handleImport() {
+    if (!previewEvents) return;
+    const selected = previewEvents.filter((e) => e.selected && e.status !== "exists");
+    if (selected.length === 0) {
+      setStatus("No entries selected");
+      return;
+    }
+
+    setImporting(true);
+    setImportResult(null);
+    try {
+      const entries = selected.map((e) => ({
+        uid: e.uid,
+        guest: e.editGuest || undefined,
+        phone: e.editPhone || undefined,
+        pax: e.editPax || undefined,
+        rate: e.editRate || undefined,
+      }));
+      const res = await fetch("/api/channels/sync-import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ entries, includePast: true }),
+      });
+      const data = await res.json();
+      setImportResult(data);
+      setPreviewEvents(null);
+      setPreviewCounts(null);
+    } catch {
+      setStatus("Import failed");
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  function updateEvent(idx: number, patch: Partial<EditableEvent>) {
+    setPreviewEvents((prev) => prev ? prev.map((e, i) => i === idx ? { ...e, ...patch } : e) : prev);
+  }
+
+  function toggleAll(checked: boolean) {
+    setPreviewEvents((prev) => prev ? prev.map((e) => e.status === "exists" ? e : { ...e, selected: checked }) : prev);
+  }
+
   const totalConfigured = configs.reduce(
-    (sum, c) => sum + c.calendars.filter((cal) => cal.enabled && cal.icalUrl).length,
-    0,
+    (sum, c) => sum + c.calendars.filter((cal) => cal.enabled && cal.icalUrl).length, 0,
   );
 
   if (loading) {
-    return (
-      <div className="panel" style={{ padding: "2rem", textAlign: "center" }}>
-        Loading channel settings...
-      </div>
-    );
+    return <div className="panel" style={{ padding: "2rem", textAlign: "center" }}>Loading channel settings...</div>;
   }
+
+  const newEvents = previewEvents?.filter((e) => e.status === "new") ?? [];
+  const blockedEvents = previewEvents?.filter((e) => e.status === "blocked") ?? [];
+  const existingEvents = previewEvents?.filter((e) => e.status === "exists") ?? [];
+  const selectedCount = previewEvents?.filter((e) => e.selected && e.status !== "exists").length ?? 0;
 
   return (
     <>
@@ -154,136 +202,211 @@ export default function ChannelsPage() {
         <div>
           <h1 className="today">OTA Channels</h1>
           <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--text-2)" }}>
-            Connect Airbnb, Booking.com, and Agoda calendars to auto-import bookings.
+            Connect Airbnb, Booking.com, and Agoda calendars. Preview before importing.
           </p>
         </div>
         <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
           {status && (
-            <span
-              style={{
-                fontSize: "0.85rem",
-                color: status === "Saved" ? "var(--good)" : "var(--crit)",
-              }}
-            >
+            <span style={{ fontSize: "0.85rem", color: status === "Saved" ? "var(--good)" : "var(--crit)" }}>
               {status}
             </span>
           )}
           <button
             className="btn-outline"
-            onClick={() => handleSync()}
-            disabled={syncing !== null || totalConfigured === 0}
+            onClick={handlePreview}
+            disabled={previewing || totalConfigured === 0}
             type="button"
           >
-            {syncing === "all" ? "Syncing..." : "Sync All"}
+            {previewing ? "Loading Preview..." : "Sync Preview"}
           </button>
-          <button
-            className="btn"
-            onClick={handleSave}
-            disabled={saving}
-            type="button"
-          >
+          <button className="btn" onClick={handleSave} disabled={saving} type="button">
             {saving ? "Saving..." : "Save Settings"}
           </button>
         </div>
       </div>
 
-      {migrationNeeded && (
-        <div
-          className="notice"
-          style={{
-            borderLeftColor: "var(--warn)",
-            background: "color-mix(in srgb, var(--warn) 12%, transparent)",
-            marginBottom: "1rem",
-          }}
-        >
-          <strong>Database migration needed.</strong> Run this SQL in your{" "}
-          <a
-            href="https://supabase.com/dashboard/project/ooydinobvwjcagptgolw/sql"
-            target="_blank"
-            rel="noreferrer"
-          >
-            Supabase SQL Editor
-          </a>
-          :
-          <pre
-            style={{
-              background: "var(--surface-2)",
-              padding: "0.75rem",
-              borderRadius: "var(--radius-xs)",
-              fontSize: "0.8rem",
-              marginTop: "0.5rem",
-              overflow: "auto",
-            }}
-          >
-{`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS external_id text;
-CREATE UNIQUE INDEX IF NOT EXISTS idx_bookings_external_id
-  ON bookings(external_id) WHERE external_id IS NOT NULL;`}
-          </pre>
-          <p style={{ margin: "0.5rem 0 0", fontSize: "0.85rem" }}>
-            After running, click Sync All again.
-          </p>
+      {importResult && (
+        <div className="notice" style={{ borderLeftColor: "var(--good)", background: "color-mix(in srgb, var(--good) 12%, transparent)", marginBottom: "1rem" }}>
+          <strong>Import complete:</strong> {importResult.imported} imported, {importResult.skipped} skipped
+          {importResult.errors.length > 0 && (
+            <ul style={{ margin: "0.5rem 0 0", paddingLeft: "1.25rem", fontSize: "0.85rem", color: "var(--crit)" }}>
+              {importResult.errors.map((e, i) => <li key={i}>{e}</li>)}
+            </ul>
+          )}
         </div>
       )}
 
-      {syncResults && syncResults.length > 0 && (
-        <div
-          className="notice"
-          style={{
-            borderLeftColor: "var(--good)",
-            background: "color-mix(in srgb, var(--good) 12%, transparent)",
-            marginBottom: "1rem",
-          }}
-        >
-          <strong>Sync complete:</strong>
-          <ul style={{ margin: "0.5rem 0 0", paddingLeft: "1.25rem", fontSize: "0.85rem" }}>
-            {syncResults.map((r, i) => (
-              <li key={i}>
-                <strong>{r.platform}</strong> ({activeUnits.find((u) => u.id === r.unitId)?.name || r.unitId})
-                : {r.imported} imported, {r.skipped} skipped
-                {r.errors.length > 0 && (
-                  <span style={{ color: "var(--crit)" }}>
-                    {" "}
-                    — {r.errors.join("; ")}
-                  </span>
-                )}
-              </li>
-            ))}
-          </ul>
+      {previewEvents && previewCounts && (
+        <div className="panel" style={{ marginBottom: "1.5rem" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+            <h2 style={{ margin: 0 }}>
+              Sync Preview
+              <span className="hint" style={{ marginLeft: "0.5rem" }}>
+                {previewCounts.new} new, {previewCounts.blocked} blocked, {previewCounts.existing} existing
+              </span>
+            </h2>
+            <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+              <span style={{ fontSize: "0.8rem", color: "var(--text-3)" }}>{selectedCount} selected</span>
+              <button className="btn" onClick={handleImport} disabled={importing || selectedCount === 0} type="button">
+                {importing ? "Importing..." : `Import ${selectedCount} Selected`}
+              </button>
+              <button className="btn-outline" onClick={() => { setPreviewEvents(null); setPreviewCounts(null); }} type="button">
+                Cancel
+              </button>
+            </div>
+          </div>
+
+          {newEvents.length > 0 && (
+            <>
+              <h3 style={{ fontSize: "0.9rem", margin: "1rem 0 0.5rem", color: "var(--good)" }}>
+                New Bookings ({newEvents.length})
+              </h3>
+              <div className="tbl-scroll">
+                <table className="tbl" style={{ fontSize: "0.8rem" }}>
+                  <thead>
+                    <tr>
+                      <th><input type="checkbox" checked={newEvents.every((e) => e.selected)} onChange={(ev) => {
+                        const val = ev.target.checked;
+                        setPreviewEvents((prev) => prev ? prev.map((e) => e.status === "new" ? { ...e, selected: val } : e) : prev);
+                      }} /></th>
+                      <th>Unit</th>
+                      <th>Platform</th>
+                      <th>Check-in</th>
+                      <th>Check-out</th>
+                      <th>Guest Name</th>
+                      <th>Phone</th>
+                      <th>Pax</th>
+                      <th>Rate</th>
+                      <th>Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {previewEvents.map((e, idx) => {
+                      if (e.status !== "new") return null;
+                      return (
+                        <tr key={e.uid} style={{ background: e.selected ? "color-mix(in srgb, var(--good) 8%, transparent)" : undefined }}>
+                          <td><input type="checkbox" checked={e.selected} onChange={(ev) => updateEvent(idx, { selected: ev.target.checked })} /></td>
+                          <td className="mono" style={{ fontWeight: 600 }}>{unitLabel(e.unit)}</td>
+                          <td><span className={`src-pill ${e.platform === "booking.com" ? "booking" : e.platform}`}>{e.platform}</span></td>
+                          <td className="mono">{e.checkIn}</td>
+                          <td className="mono">{e.checkOut}</td>
+                          <td>
+                            <input type="text" value={e.editGuest} onChange={(ev) => updateEvent(idx, { editGuest: ev.target.value })}
+                              style={{ width: "10rem", fontSize: "0.8rem", padding: "0.2rem 0.4rem" }} placeholder="Guest name" />
+                          </td>
+                          <td>
+                            <input type="text" value={e.editPhone} onChange={(ev) => updateEvent(idx, { editPhone: ev.target.value })}
+                              style={{ width: "8rem", fontSize: "0.8rem", padding: "0.2rem 0.4rem" }} placeholder="Phone" />
+                          </td>
+                          <td>
+                            <input type="number" value={e.editPax} onChange={(ev) => updateEvent(idx, { editPax: Number(ev.target.value) || 2 })}
+                              style={{ width: "3rem", fontSize: "0.8rem", padding: "0.2rem 0.4rem", textAlign: "center" }} min={1} />
+                          </td>
+                          <td>
+                            <input type="number" value={e.editRate} onChange={(ev) => updateEvent(idx, { editRate: Number(ev.target.value) || 0 })}
+                              style={{ width: "5rem", fontSize: "0.8rem", padding: "0.2rem 0.4rem", textAlign: "right" }} min={0} />
+                          </td>
+                          <td style={{ fontSize: "0.75rem", color: "var(--text-3)", maxWidth: "12rem" }}>{e.notes || e.summary}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+
+          {blockedEvents.length > 0 && (
+            <>
+              <h3 style={{ fontSize: "0.9rem", margin: "1.5rem 0 0.5rem", color: "var(--text-3)" }}>
+                Blocked Dates ({blockedEvents.length})
+                <span style={{ fontSize: "0.75rem", fontWeight: 400, marginLeft: "0.5rem" }}>synced to calendar only</span>
+              </h3>
+              <div className="tbl-scroll">
+                <table className="tbl" style={{ fontSize: "0.8rem" }}>
+                  <thead>
+                    <tr>
+                      <th><input type="checkbox" checked={blockedEvents.every((e) => e.selected)} onChange={(ev) => {
+                        const val = ev.target.checked;
+                        setPreviewEvents((prev) => prev ? prev.map((e) => e.status === "blocked" ? { ...e, selected: val } : e) : prev);
+                      }} /></th>
+                      <th>Unit</th>
+                      <th>Platform</th>
+                      <th>From</th>
+                      <th>To</th>
+                      <th>Summary</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {previewEvents.map((e, idx) => {
+                      if (e.status !== "blocked") return null;
+                      return (
+                        <tr key={e.uid} style={{ opacity: e.selected ? 1 : 0.5 }}>
+                          <td><input type="checkbox" checked={e.selected} onChange={(ev) => updateEvent(idx, { selected: ev.target.checked })} /></td>
+                          <td className="mono" style={{ fontWeight: 600 }}>{unitLabel(e.unit)}</td>
+                          <td>{e.platform}</td>
+                          <td className="mono">{e.checkIn}</td>
+                          <td className="mono">{e.checkOut}</td>
+                          <td style={{ fontSize: "0.75rem", color: "var(--text-3)" }}>{e.notes || e.summary}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+
+          {existingEvents.length > 0 && (
+            <>
+              <h3 style={{ fontSize: "0.9rem", margin: "1.5rem 0 0.5rem", color: "var(--text-3)" }}>
+                Already Synced ({existingEvents.length})
+              </h3>
+              <div className="tbl-scroll">
+                <table className="tbl" style={{ fontSize: "0.8rem", opacity: 0.5 }}>
+                  <thead>
+                    <tr>
+                      <th>Unit</th>
+                      <th>Platform</th>
+                      <th>Check-in</th>
+                      <th>Check-out</th>
+                      <th>Guest</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {existingEvents.map((e) => (
+                      <tr key={e.uid}>
+                        <td className="mono">{unitLabel(e.unit)}</td>
+                        <td>{e.platform}</td>
+                        <td className="mono">{e.checkIn}</td>
+                        <td className="mono">{e.checkOut}</td>
+                        <td>{e.guest || e.summary}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+
+          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "1rem", gap: "0.5rem" }}>
+            <button className="btn" onClick={handleImport} disabled={importing || selectedCount === 0} type="button">
+              {importing ? "Importing..." : `Import ${selectedCount} Selected`}
+            </button>
+          </div>
         </div>
       )}
 
       <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1.5rem", flexWrap: "wrap" }}>
         {PLATFORMS.map((p) => {
           const count = configs.reduce(
-            (n, c) => n + (c.calendars.find((cal) => cal.platform === p.id && cal.enabled && cal.icalUrl) ? 1 : 0),
-            0,
+            (n, c) => n + (c.calendars.find((cal) => cal.platform === p.id && cal.enabled && cal.icalUrl) ? 1 : 0), 0,
           );
           return (
-            <div
-              key={p.id}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.5rem",
-                padding: "0.5rem 1rem",
-                background: "var(--surface)",
-                border: "1px solid var(--line-soft)",
-                borderRadius: "var(--radius-sm)",
-              }}
-            >
-              <span
-                style={{
-                  width: 10,
-                  height: 10,
-                  borderRadius: "50%",
-                  background: p.color,
-                  display: "inline-block",
-                }}
-              />
+            <div key={p.id} style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.5rem 1rem", background: "var(--surface)", border: "1px solid var(--line-soft)", borderRadius: "var(--radius-sm)" }}>
+              <span style={{ width: 10, height: 10, borderRadius: "50%", background: p.color, display: "inline-block" }} />
               <span style={{ fontWeight: 600, fontSize: "0.85rem" }}>{p.label}</span>
-              <span style={{ fontSize: "0.8rem", color: "var(--text-3)" }}>
-                {count} unit{count !== 1 ? "s" : ""}
-              </span>
+              <span style={{ fontSize: "0.8rem", color: "var(--text-3)" }}>{count} unit{count !== 1 ? "s" : ""}</span>
             </div>
           );
         })}
@@ -305,104 +428,32 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_bookings_external_id
             const config = getUnitConfig(unit.id);
             const hasAny = config.calendars.some((c) => c.icalUrl);
             return (
-              <div
-                key={unit.id}
-                style={{
-                  padding: "1rem",
-                  background: "var(--surface-2)",
-                  borderRadius: "var(--radius-sm)",
-                  marginBottom: "1rem",
-                  borderLeft: hasAny ? "3px solid var(--good)" : "3px solid var(--line-soft)",
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginBottom: "0.75rem",
-                  }}
-                >
+              <div key={unit.id} style={{ padding: "1rem", background: "var(--surface-2)", borderRadius: "var(--radius-sm)", marginBottom: "1rem", borderLeft: hasAny ? "3px solid var(--good)" : "3px solid var(--line-soft)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
                   <div>
-                    <strong>
-                      {unit.name || `${unit.tower}-${unit.code}`}
-                    </strong>
-                    <span style={{ fontSize: "0.8rem", color: "var(--text-3)", marginLeft: "0.5rem" }}>
-                      {unit.tower}-{unit.code}
-                    </span>
+                    <strong>{unit.name || `${unit.tower}-${unit.code}`}</strong>
+                    <span style={{ fontSize: "0.8rem", color: "var(--text-3)", marginLeft: "0.5rem" }}>{unit.tower}-{unit.code}</span>
                   </div>
-                  <button
-                    className="btn-outline btn-sm"
-                    onClick={() => handleSync(unit.id)}
-                    disabled={syncing !== null || !hasAny}
-                    type="button"
-                  >
-                    {syncing === unit.id ? "Syncing..." : "Sync"}
-                  </button>
                 </div>
-
                 {PLATFORMS.map((p) => {
-                  const cal = config.calendars.find((c) => c.platform === p.id) ?? {
-                    platform: p.id,
-                    icalUrl: "",
-                    enabled: false,
-                  };
+                  const cal = config.calendars.find((c) => c.platform === p.id) ?? { platform: p.id, icalUrl: "", enabled: false };
                   const lastSync = syncLog[`${unit.id}:${p.id}`];
                   return (
-                    <div
-                      key={p.id}
-                      style={{
-                        display: "flex",
-                        gap: "0.5rem",
-                        alignItems: "center",
-                        marginBottom: "0.5rem",
-                      }}
-                    >
-                      <label
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "0.35rem",
-                          minWidth: 120,
-                          fontSize: "0.85rem",
-                          cursor: "pointer",
-                        }}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={cal.enabled}
-                          onChange={(e) =>
-                            updateCalendar(unit.id, p.id, { enabled: e.target.checked })
-                          }
-                        />
-                        <span
-                          style={{
-                            width: 8,
-                            height: 8,
-                            borderRadius: "50%",
-                            background: p.color,
-                            display: "inline-block",
-                          }}
-                        />
+                    <div key={p.id} style={{ display: "flex", gap: "0.5rem", alignItems: "center", marginBottom: "0.5rem" }}>
+                      <label style={{ display: "flex", alignItems: "center", gap: "0.35rem", minWidth: 120, fontSize: "0.85rem", cursor: "pointer" }}>
+                        <input type="checkbox" checked={cal.enabled} onChange={(e) => updateCalendar(unit.id, p.id, { enabled: e.target.checked })} />
+                        <span style={{ width: 8, height: 8, borderRadius: "50%", background: p.color, display: "inline-block" }} />
                         {p.label}
                       </label>
                       <input
                         type="url"
                         placeholder={`Paste ${p.label} iCal URL...`}
                         value={cal.icalUrl}
-                        onChange={(e) =>
-                          updateCalendar(unit.id, p.id, { icalUrl: e.target.value })
-                        }
+                        onChange={(e) => updateCalendar(unit.id, p.id, { icalUrl: e.target.value })}
                         style={{ flex: 1, fontSize: "0.8rem" }}
                       />
                       {lastSync && (
-                        <span
-                          style={{
-                            fontSize: "0.7rem",
-                            color: "var(--text-3)",
-                            whiteSpace: "nowrap",
-                          }}
-                        >
+                        <span style={{ fontSize: "0.7rem", color: "var(--text-3)", whiteSpace: "nowrap" }}>
                           Last: {new Date(lastSync).toLocaleDateString()}
                         </span>
                       )}
@@ -427,52 +478,13 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_bookings_external_id
             const token = unit.id.replace(/[^a-z0-9]/g, "");
             const exportUrl = `${baseUrl}/api/ical/${token}`;
             return (
-              <div
-                key={unit.id}
-                style={{
-                  display: "flex",
-                  gap: "0.5rem",
-                  alignItems: "center",
-                  marginBottom: "0.5rem",
-                }}
-              >
-                <span style={{ minWidth: 140, fontWeight: 500, fontSize: "0.85rem" }}>
-                  {unit.name || `${unit.tower}-${unit.code}`}
-                </span>
-                <input
-                  type="text"
-                  readOnly
-                  value={exportUrl}
-                  style={{ flex: 1, fontSize: "0.75rem", color: "var(--text-2)" }}
-                  onFocus={(e) => e.target.select()}
-                />
-                <button
-                  className="btn-outline btn-sm"
-                  type="button"
-                  onClick={() => {
-                    navigator.clipboard.writeText(exportUrl);
-                  }}
-                >
-                  Copy
-                </button>
+              <div key={unit.id} style={{ display: "flex", gap: "0.5rem", alignItems: "center", marginBottom: "0.5rem" }}>
+                <span style={{ minWidth: 140, fontWeight: 500, fontSize: "0.85rem" }}>{unit.name || `${unit.tower}-${unit.code}`}</span>
+                <input type="text" readOnly value={exportUrl} style={{ flex: 1, fontSize: "0.75rem", color: "var(--text-2)" }} onFocus={(e) => e.target.select()} />
+                <button className="btn-outline btn-sm" type="button" onClick={() => { navigator.clipboard.writeText(exportUrl); }}>Copy</button>
               </div>
             );
           })}
-        </div>
-      </div>
-
-      <div className="form-panel" style={{ marginTop: "1.5rem" }}>
-        <h2>How It Works</h2>
-        <div className="form-body" style={{ fontSize: "0.85rem", color: "var(--text-2)" }}>
-          <ol style={{ paddingLeft: "1.25rem", margin: 0 }}>
-            <li>Paste the iCal export URL from Airbnb / Booking.com / Agoda for each unit</li>
-            <li>Enable the checkbox and click <strong>Save Settings</strong></li>
-            <li>Click <strong>Sync All</strong> or sync individual units</li>
-            <li>Bookings are imported with guest name, dates, contact info, and rate</li>
-            <li>Duplicate bookings are automatically skipped</li>
-            <li>Imported bookings appear in your Bookings page with the platform source tag</li>
-            <li>Copy the export URLs above and paste into Airbnb / Booking.com / Agoda to complete two-way sync</li>
-          </ol>
         </div>
       </div>
     </>

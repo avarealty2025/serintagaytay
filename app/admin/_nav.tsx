@@ -12,6 +12,8 @@ const GROUPS: { title: string; links: { href: string; label: string }[] }[] = [
       { href: "/admin/bookings/history", label: "History" },
       { href: "/admin/guests", label: "Guests" },
       { href: "/admin/tasks", label: "Tasks" },
+      { href: "/admin/cleaning", label: "Cleaning" },
+      { href: "/admin/maintenance", label: "Maintenance" },
     ],
   },
   {
@@ -23,7 +25,8 @@ const GROUPS: { title: string; links: { href: string; label: string }[] }[] = [
   {
     title: "Business",
     links: [
-      { href: "/admin/reports", label: "Reports" },
+      { href: "/admin/reports", label: "Reports & P&L" },
+      { href: "/admin/reports/parking", label: "Parking" },
       { href: "/admin/invoices", label: "Invoices" },
       { href: "/admin/expenses", label: "Expenses" },
       { href: "/admin/reviews", label: "Reviews" },

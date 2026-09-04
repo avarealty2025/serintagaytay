@@ -7,11 +7,13 @@ import { formatPHP, quote } from "../../src/lib/pricing.ts";
 import { getSettings } from "../../src/lib/settings.ts";
 import { StatusBtn } from "./bookings/_status-btn.tsx";
 import { CollectBtn } from "./bookings/_collect-btn.tsx";
+import { MyTasksPanel } from "./_my-tasks.tsx";
+import { LiveClock } from "./_live-clock.tsx";
 
 export const dynamic = "force-dynamic";
 
 const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const GONE = new Set(["checked_out", "cancelled", "payment_rejected", "expired", "no_show"]);
+const GONE = new Set(["checked_out", "cancelled", "payment_rejected", "expired", "no_show", "blocked"]);
 
 function BalancePill({ gross, paid }: { gross: number; paid: number }) {
   if (gross <= 0) return null;
@@ -101,8 +103,8 @@ export default async function Dashboard() {
       <div className="page-head">
         <div>
           <h1 className="today">Dashboard</h1>
+          <LiveClock refreshInterval={60} />
           <p className="dash-date">
-            {DOW[dayOfWeek(today)]}, {today}
             <span className="dash-time">
               Check-in {settings.booking.checkInTime.replace(":00", "")} / Check-out {settings.booking.checkOutTime.replace(":00", "")}
             </span>
@@ -166,7 +168,7 @@ export default async function Dashboard() {
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                   <BalancePill gross={b.grossAmount} paid={b.amountPaid} />
-                  <CollectBtn bookingId={b.id} balance={b.grossAmount - b.amountPaid} />
+                  <CollectBtn bookingId={b.id} balance={b.grossAmount - b.amountPaid} collectedBy={b.collectedBy} collectedAt={b.collectedAt} />
                   <StatusBtn
                     bookingId={b.id}
                     action="checked_in"
@@ -202,7 +204,7 @@ export default async function Dashboard() {
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                   <BalancePill gross={b.grossAmount} paid={b.amountPaid} />
-                  <CollectBtn bookingId={b.id} balance={b.grossAmount - b.amountPaid} />
+                  <CollectBtn bookingId={b.id} balance={b.grossAmount - b.amountPaid} collectedBy={b.collectedBy} collectedAt={b.collectedAt} />
                   <StatusBtn
                     bookingId={b.id}
                     action="checked_out"
@@ -260,7 +262,7 @@ export default async function Dashboard() {
                         <BalancePill gross={b.grossAmount} paid={b.amountPaid} />
                       </td>
                       <td>
-                        <CollectBtn bookingId={b.id} balance={b.grossAmount - b.amountPaid} />
+                        <CollectBtn bookingId={b.id} balance={b.grossAmount - b.amountPaid} collectedBy={b.collectedBy} collectedAt={b.collectedAt} />
                       </td>
                       <td>
                         <StatusBtn
@@ -371,6 +373,8 @@ export default async function Dashboard() {
           )}
         </div>
       )}
+
+      <MyTasksPanel />
 
       {unitIdsWithRevenue.length > 0 && (
         <div className="panel">

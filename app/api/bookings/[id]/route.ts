@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { updateBooking, deleteBooking, logAudit } from "../../../../src/data/db.ts";
+import { updateBooking, deleteBooking, logAudit, getUnitIdMap } from "../../../../src/data/db.ts";
 import { isSupabaseConfigured, getSupabaseAdmin } from "../../../../src/lib/supabase.ts";
 
 export async function GET(
@@ -23,9 +23,11 @@ export async function GET(
   }
 
   const guest = data.guests as { name: string; email: string; phone: string } | null;
+  const idMap = await getUnitIdMap();
+  const appUnitId = idMap.get(data.unit_id) || data.unit_id;
   return NextResponse.json({
     id: data.id,
-    unitId: data.unit_id,
+    unitId: appUnitId,
     checkIn: data.check_in,
     checkOut: data.check_out,
     status: data.status,
@@ -44,6 +46,7 @@ export async function GET(
     discountAmount: Number(data.discount_amount ?? 0),
     parkingFee: Number(data.parking_fee ?? 0),
     parkingFeeType: data.parking_fee_type ?? "one_time",
+    parkingSlot: data.parking_slot ?? null,
   });
 }
 
@@ -64,6 +67,9 @@ export async function PUT(
     const { data: existing } = await sb.from("bookings").select("amount_paid").eq("id", id).single();
     if (existing) {
       body.amountPaid = Number(existing.amount_paid ?? 0) + Number(body.amountPaid);
+    }
+    if (body.collectedBy) {
+      body.collectedAt = new Date().toISOString();
     }
     delete body.collectAdd;
   }

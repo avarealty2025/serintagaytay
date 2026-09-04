@@ -1,5 +1,7 @@
 import { Mark } from "../mark.tsx";
 import { SideNav } from "./_nav.tsx";
+import { NotificationBell } from "./_my-tasks.tsx";
+import { AiAssistant } from "./_ai-assistant.tsx";
 
 export default function AdminLayout({
   children,
@@ -18,7 +20,13 @@ export default function AdminLayout({
         </div>
         <SideNav />
       </aside>
-      <main className="main">{children}</main>
+      <main className="main">
+        <div style={{ position: "fixed", top: "0.5rem", right: "1rem", zIndex: 100 }}>
+          <NotificationBell />
+        </div>
+        {children}
+      </main>
+      <AiAssistant />
     </div>
   );
 }

@@ -36,7 +36,6 @@ export default async function GuestsPage({
 
   const totalGuests = guests.length;
   const repeatGuests = guests.filter((g) => g.totalBookings > 1).length;
-  const totalRevenue = guests.reduce((sum, g) => sum + g.totalRevenue, 0);
 
   return (
     <>
@@ -52,10 +51,6 @@ export default async function GuestsPage({
         <div className="crm-stat-card">
           <span className="crm-stat-value">{repeatGuests}</span>
           <span className="crm-stat-label">Repeat Guests</span>
-        </div>
-        <div className="crm-stat-card">
-          <span className="crm-stat-value">{formatPHP(totalRevenue)}</span>
-          <span className="crm-stat-label">Lifetime Revenue</span>
         </div>
       </div>
 

@@ -6,6 +6,9 @@ import { formatPHP, quote } from "../../../src/lib/pricing.ts";
 import { ConfirmBtn } from "./_confirm-btn.tsx";
 import { DeleteBtn } from "./_delete-btn.tsx";
 import { StatusBtn } from "./_status-btn.tsx";
+import { ParkingSlot } from "./_parking-slot.tsx";
+import { InlineEdit, InlineSelect } from "./_inline-edit.tsx";
+import { BookingAmounts } from "./_booking-amounts.tsx";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +22,27 @@ const SOURCE_LABEL: Record<string, string> = {
   block: "Blocked",
 };
 
-const GONE = new Set(["checked_out", "cancelled", "payment_rejected", "expired", "no_show"]);
+const SOURCE_OPTIONS = [
+  { value: "direct", label: "Direct" },
+  { value: "airbnb", label: "Airbnb" },
+  { value: "booking.com", label: "Booking.com" },
+  { value: "agoda", label: "Agoda" },
+  { value: "facebook", label: "Facebook" },
+  { value: "manual", label: "Manual" },
+  { value: "block", label: "Blocked" },
+];
+
+const SOURCE_COLORS: Record<string, string> = {
+  direct: "#2980b9",
+  airbnb: "#ff5a5f",
+  "booking.com": "#003580",
+  agoda: "#5542f6",
+  facebook: "#4267B2",
+  manual: "#7f8c8d",
+  block: "#e74c3c",
+};
+
+const GONE = new Set(["checked_out", "cancelled", "payment_rejected", "expired", "no_show", "blocked"]);
 
 export default async function BookingsPage({
   searchParams,
@@ -33,6 +56,8 @@ export default async function BookingsPage({
   const filterUnit = sp.unit || "";
   const search = (sp.q || "").toLowerCase();
   const showAll = sp.show === "all";
+  const sortBy = sp.sort || "checkin";
+  const sortDir = sp.dir === "desc" ? "desc" : "asc";
 
   let filtered = bookings;
   if (!showAll) {
@@ -52,11 +77,44 @@ export default async function BookingsPage({
     );
   }
 
-  const sorted = [...filtered].sort((a, b) =>
-    b.checkIn.localeCompare(a.checkIn),
-  );
-
   const today = toDateStr(new Date());
+
+  const sorted = [...filtered].sort((a, b) => {
+    if (sortBy === "checkin" && sortDir === "asc") {
+      const aIsToday = a.checkIn <= today && a.checkOut > today ? 0 : a.checkIn > today ? 1 : 2;
+      const bIsToday = b.checkIn <= today && b.checkOut > today ? 0 : b.checkIn > today ? 1 : 2;
+      if (aIsToday !== bIsToday) return aIsToday - bIsToday;
+      if (aIsToday === 2) return b.checkIn.localeCompare(a.checkIn);
+      return a.checkIn.localeCompare(b.checkIn);
+    }
+    let cmp = 0;
+    switch (sortBy) {
+      case "unit": cmp = a.unitId.localeCompare(b.unitId); break;
+      case "guest": cmp = (a.guest || "").localeCompare(b.guest || ""); break;
+      case "checkout": cmp = a.checkOut.localeCompare(b.checkOut); break;
+      case "amount": cmp = (a.grossAmount || 0) - (b.grossAmount || 0); break;
+      case "status": cmp = a.status.localeCompare(b.status); break;
+      case "source": cmp = (a.source || "").localeCompare(b.source || ""); break;
+      default: cmp = a.checkIn.localeCompare(b.checkIn); break;
+    }
+    return sortDir === "desc" ? -cmp : cmp;
+  });
+
+  function sortUrl(col: string) {
+    const params = new URLSearchParams();
+    if (search) params.set("q", search);
+    if (filterSource) params.set("source", filterSource);
+    if (filterUnit) params.set("unit", filterUnit);
+    if (showAll) params.set("show", "all");
+    params.set("sort", col);
+    params.set("dir", sortBy === col && sortDir === "asc" ? "desc" : "asc");
+    return `/admin/bookings?${params.toString()}`;
+  }
+
+  function sortLabel(col: string) {
+    if (sortBy !== col) return "";
+    return sortDir === "asc" ? " ▲" : " ▼";
+  }
 
   const unitMap = new Map(UNITS.map((u) => [u.id, u]));
 
@@ -131,23 +189,27 @@ export default async function BookingsPage({
       <div className="panel">
         <h2>
           {sorted.length} bookings{" "}
-          <span className="hint">sorted by check-in, newest first</span>
+          <span className="hint">all fields are editable — click to change</span>
         </h2>
         <div className="tbl-scroll">
           <table className="tbl">
             <thead>
               <tr>
-                <th>Unit</th>
-                <th>Guest</th>
-                <th>Check-in</th>
-                <th>Check-out</th>
+                <th><Link href={sortUrl("unit")} style={{ color: "inherit", textDecoration: "none" }}>Unit{sortLabel("unit")}</Link></th>
+                <th>Parking</th>
+                <th><Link href={sortUrl("guest")} style={{ color: "inherit", textDecoration: "none" }}>Guest{sortLabel("guest")}</Link></th>
+                <th><Link href={sortUrl("checkin")} style={{ color: "inherit", textDecoration: "none" }}>Check-in{sortLabel("checkin")}</Link></th>
+                <th><Link href={sortUrl("checkout")} style={{ color: "inherit", textDecoration: "none" }}>Check-out{sortLabel("checkout")}</Link></th>
                 <th>Nights</th>
                 <th>Pax</th>
-                <th>Source</th>
-                <th className="tar">Amount</th>
+                <th><Link href={sortUrl("source")} style={{ color: "inherit", textDecoration: "none" }}>Source{sortLabel("source")}</Link></th>
+                <th className="tar">Unit Amt</th>
+                <th className="tar">Parking</th>
+                <th className="tar"><Link href={sortUrl("amount")} style={{ color: "inherit", textDecoration: "none" }}>Total{sortLabel("amount")}</Link></th>
                 <th>Balance</th>
                 <th>Proof</th>
-                <th>Status</th>
+                <th>Notes</th>
+                <th><Link href={sortUrl("status")} style={{ color: "inherit", textDecoration: "none" }}>Status{sortLabel("status")}</Link></th>
                 <th></th>
               </tr>
             </thead>
@@ -171,28 +233,59 @@ export default async function BookingsPage({
                 }
                 return (
                   <tr key={b.id}>
-                    <td className="mono">
+                    <td className="mono" style={{ fontWeight: 600 }}>
                       {unit
                         ? `${unit.tower}-${unit.code}${unit.buildingId === "east" ? " E" : ""}`
                         : b.unitId}
                     </td>
-                    <td>{b.guest || "—"}</td>
-                    <td className="mono">{b.checkIn}</td>
-                    <td className="mono">{b.checkOut}</td>
-                    <td className="tar mono">{nights}</td>
-                    <td className="tar">{b.guests || "—"}</td>
-                    <td>
-                      <span className={`src-pill ${b.source ?? "unknown"}`}>
-                        {SOURCE_LABEL[b.source ?? ""] ?? b.source ?? "—"}
-                      </span>
+                    <td className="mono">
+                      <ParkingSlot bookingId={b.id} value={b.parkingSlot} />
                     </td>
-                    <td className="tar mono">{b.grossAmount > 0 ? formatPHP(b.grossAmount) : amount || "—"}</td>
+                    <td>
+                      <InlineEdit bookingId={b.id} field="guestName" value={b.guest || ""} placeholder="Guest name" width="8rem" />
+                    </td>
+                    <td>
+                      <InlineEdit bookingId={b.id} field="checkIn" value={b.checkIn} type="date" mono />
+                    </td>
+                    <td>
+                      <InlineEdit bookingId={b.id} field="checkOut" value={b.checkOut} type="date" mono />
+                    </td>
+                    <td className="tar mono">{nights}</td>
+                    <td className="tar">
+                      <InlineEdit bookingId={b.id} field="guests" value={String(b.guests || 2)} type="number" width="2.5rem" />
+                    </td>
+                    <td>
+                      <InlineSelect
+                        bookingId={b.id}
+                        field="source"
+                        value={b.source ?? "direct"}
+                        options={SOURCE_OPTIONS}
+                        colorMap={SOURCE_COLORS}
+                      />
+                    </td>
+                    <BookingAmounts
+                      bookingId={b.id}
+                      grossAmount={b.grossAmount}
+                      parkingFee={b.parkingFee}
+                      parkingFeeType={b.parkingFeeType}
+                      nights={nights}
+                    />
                     <td>
                       {(() => {
                         const bal = b.grossAmount - b.amountPaid;
                         if (b.grossAmount <= 0) return <span style={{ color: "var(--text-3)", fontSize: "0.72rem" }}>—</span>;
-                        if (bal <= 0) return <span style={{ fontSize: "0.72rem", fontWeight: 600, color: "#fff", background: "var(--good)", padding: "0.15rem 0.5rem", borderRadius: "9px", whiteSpace: "nowrap" }}>Fully Paid</span>;
-                        return <span style={{ fontSize: "0.72rem", fontWeight: 600, color: "#fff", background: "var(--crit, #c0392b)", padding: "0.15rem 0.5rem", borderRadius: "9px", whiteSpace: "nowrap" }}>Collect {formatPHP(bal)}</span>;
+                        if (bal <= 0) return (
+                          <span>
+                            <span style={{ fontSize: "0.72rem", fontWeight: 600, color: "#fff", background: "var(--good)", padding: "0.15rem 0.5rem", borderRadius: "9px", whiteSpace: "nowrap", display: "inline-block" }}>Fully Paid</span>
+                            {b.collectedBy && <span style={{ display: "block", fontSize: "0.65rem", color: "var(--text-3)", marginTop: "0.15rem" }}>by {b.collectedBy}</span>}
+                          </span>
+                        );
+                        return (
+                          <span>
+                            <span style={{ fontSize: "0.72rem", fontWeight: 600, color: "#fff", background: "var(--crit, #c0392b)", padding: "0.15rem 0.5rem", borderRadius: "9px", whiteSpace: "nowrap", display: "inline-block" }}>Collect {formatPHP(bal)}</span>
+                            {b.collectedBy && <span style={{ display: "block", fontSize: "0.65rem", color: "var(--text-3)", marginTop: "0.15rem" }}>partial by {b.collectedBy}</span>}
+                          </span>
+                        );
                       })()}
                     </td>
                     <td>
@@ -201,6 +294,9 @@ export default async function BookingsPage({
                       ) : (
                         <span style={{ color: "var(--text-3)", fontSize: "0.75rem" }}>None</span>
                       )}
+                    </td>
+                    <td>
+                      <InlineEdit bookingId={b.id} field="notes" value={b.notes || ""} placeholder="Add notes..." width="8rem" />
                     </td>
                     <td><ConfirmBtn bookingId={b.id} status={b.status} /></td>
                     <td style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>

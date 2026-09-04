@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { UNITS } from "../../../src/data/units.ts";
 import { formatPHP } from "../../../src/lib/pricing.ts";
 import { DataTable, type Column } from "../../../src/components/data-table.tsx";
@@ -9,13 +9,12 @@ interface Expense {
   id: string;
   date: string;
   category: string;
-  unitId: string;
-  description: string;
+  unitId: string | null;
   amount: number;
-  vendor: string;
-  receiptUrl: string;
-  status: "pending" | "approved" | "rejected";
-  createdBy: string;
+  vendor: string | null;
+  notes: string | null;
+  approved: boolean;
+  createdAt: string;
 }
 
 interface ExpenseCategory {
@@ -38,40 +37,46 @@ const DEFAULT_CATEGORIES: ExpenseCategory[] = [
   { id: "other", name: "Other", description: "Miscellaneous expenses" },
 ];
 
-const SAMPLE_EXPENSES: Expense[] = [];
-
 const EMPTY_FORM = {
   date: new Date().toISOString().slice(0, 10),
   category: "",
   unitId: "",
-  description: "",
+  notes: "",
   amount: 0,
   vendor: "",
 };
 
 export default function ExpensesPage() {
-  const [expenses, setExpenses] = useState<Expense[]>(SAMPLE_EXPENSES);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [loading, setLoading] = useState(true);
   const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
   const [showForm, setShowForm] = useState(false);
   const [showCatForm, setShowCatForm] = useState(false);
   const [editCat, setEditCat] = useState<ExpenseCategory | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [unitFilter, setUnitFilter] = useState("");
+  const [saving, setSaving] = useState(false);
 
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [catForm, setCatForm] = useState({ name: "", description: "" });
 
   const active = UNITS.filter((u) => u.active);
 
+  useEffect(() => {
+    fetch("/api/expenses")
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data)) setExpenses(data);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, []);
+
   const filtered = unitFilter
     ? expenses.filter((e) => e.unitId === unitFilter)
     : expenses;
 
   const totalExpenses = filtered.reduce((s, e) => s + e.amount, 0);
-  const pendingCount = filtered.filter((e) => e.status === "pending").length;
-  const approvedTotal = filtered
-    .filter((e) => e.status === "approved")
-    .reduce((s, e) => s + e.amount, 0);
 
   const unitExpenses = new Map<string, number>();
   for (const e of expenses) {
@@ -90,33 +95,74 @@ export default function ExpensesPage() {
     setForm({
       date: expense.date,
       category: expense.category,
-      unitId: expense.unitId,
-      description: expense.description,
+      unitId: expense.unitId || "",
+      notes: expense.notes || "",
       amount: expense.amount,
-      vendor: expense.vendor,
+      vendor: expense.vendor || "",
     });
     setShowForm(true);
   }
 
-  function saveExpense() {
-    if (editingId) {
-      setExpenses((prev) =>
-        prev.map((e) =>
-          e.id === editingId
-            ? { ...e, ...form }
-            : e,
-        ),
-      );
-    } else {
-      const newExpense: Expense = {
-        id: `exp-${Date.now()}`,
-        ...form,
-        receiptUrl: "",
-        status: "pending",
-        createdBy: "Admin",
-      };
-      setExpenses((prev) => [newExpense, ...prev]);
-    }
+  async function saveExpense() {
+    if (!form.category || !form.amount || !form.date) return;
+    setSaving(true);
+    try {
+      if (editingId) {
+        const res = await fetch("/api/expenses", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: editingId,
+            category: form.category,
+            amount: form.amount,
+            date: form.date,
+            vendor: form.vendor,
+            notes: form.notes,
+            unitId: form.unitId || undefined,
+          }),
+        });
+        if (res.ok) {
+          setExpenses((prev) =>
+            prev.map((e) =>
+              e.id === editingId
+                ? { ...e, category: form.category, amount: form.amount, date: form.date, vendor: form.vendor || null, notes: form.notes || null, unitId: form.unitId || null }
+                : e,
+            ),
+          );
+        }
+      } else {
+        const res = await fetch("/api/expenses", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            category: form.category,
+            amount: form.amount,
+            date: form.date,
+            vendor: form.vendor,
+            notes: form.notes,
+            unitId: form.unitId || undefined,
+          }),
+        });
+        if (res.ok) {
+          const { id } = await res.json();
+          setExpenses((prev) => [
+            {
+              id,
+              category: form.category,
+              amount: form.amount,
+              date: form.date,
+              vendor: form.vendor || null,
+              notes: form.notes || null,
+              unitId: form.unitId || null,
+              approved: false,
+              createdAt: new Date().toISOString(),
+            },
+            ...prev,
+          ]);
+        }
+      }
+    } catch { /* ignore */ }
+    setSaving(false);
     setShowForm(false);
     setEditingId(null);
     setForm({ ...EMPTY_FORM });
@@ -150,16 +196,13 @@ export default function ExpensesPage() {
     setCategories((prev) => prev.filter((c) => c.id !== id));
   }
 
-  function deleteExpense(id: string) {
-    setExpenses((prev) => prev.filter((e) => e.id !== id));
-  }
-
-  function approveExpense(id: string) {
-    setExpenses((prev) =>
-      prev.map((e) =>
-        e.id === id ? { ...e, status: "approved" as const } : e,
-      ),
-    );
+  async function handleDeleteExpense(id: string) {
+    try {
+      const res = await fetch(`/api/expenses?id=${id}`, { method: "DELETE" });
+      if (res.ok) {
+        setExpenses((prev) => prev.filter((e) => e.id !== id));
+      }
+    } catch { /* ignore */ }
   }
 
   const columns: Column<Expense>[] = [
@@ -181,12 +224,16 @@ export default function ExpensesPage() {
       sortable: true,
       render: (row) => {
         if (!row.unitId) return "General";
-        const u = active.find((u) => u.id === row.unitId);
+        const u = active.find((x) => x.id === row.unitId);
         return u ? `${u.tower}-${u.code}` : row.unitId;
       },
     },
-    { key: "description", label: "Description" },
-    { key: "vendor", label: "Vendor" },
+    {
+      key: "notes",
+      label: "Notes",
+      render: (row) => row.notes || "—",
+    },
+    { key: "vendor", label: "Vendor", render: (row) => row.vendor || "—" },
     {
       key: "amount",
       label: "Amount",
@@ -195,32 +242,15 @@ export default function ExpensesPage() {
       className: "mono",
       render: (row) => formatPHP(row.amount),
     },
-    {
-      key: "status",
-      label: "Status",
-      filterOptions: [
-        { label: "Pending", value: "pending" },
-        { label: "Approved", value: "approved" },
-        { label: "Rejected", value: "rejected" },
-      ],
-      render: (row) => (
-        <span
-          className={`status-pill ${row.status === "approved" ? "ok" : row.status === "rejected" ? "" : "warn"}`}
-          style={
-            row.status === "rejected"
-              ? {
-                  background:
-                    "color-mix(in srgb, var(--crit) 18%, transparent)",
-                  color: "var(--crit)",
-                }
-              : undefined
-          }
-        >
-          {row.status}
-        </span>
-      ),
-    },
   ];
+
+  if (loading) {
+    return (
+      <div className="page-head">
+        <h1 className="today">Loading Expenses...</h1>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -253,18 +283,6 @@ export default function ExpensesPage() {
           <p className="s">{filtered.length} entries</p>
         </div>
         <div className="tile">
-          <p className="k">Approved</p>
-          <p className="v" style={{ fontSize: "1.2rem" }}>
-            {formatPHP(approvedTotal)}
-          </p>
-          <p className="s">verified expenses</p>
-        </div>
-        <div className="tile">
-          <p className="k">Pending Approval</p>
-          <p className="v">{pendingCount}</p>
-          <p className="s">awaiting review</p>
-        </div>
-        <div className="tile">
           <p className="k">Categories</p>
           <p className="v">{categories.length}</p>
           <p className="s">expense types</p>
@@ -290,7 +308,7 @@ export default function ExpensesPage() {
                   {[...unitExpenses.entries()]
                     .sort((a, b) => b[1] - a[1])
                     .map(([uid, total]) => {
-                      const u = active.find((u) => u.id === uid);
+                      const u = active.find((x) => x.id === uid);
                       const count = expenses.filter(
                         (e) =>
                           (e.unitId || "general") === uid,
@@ -345,7 +363,7 @@ export default function ExpensesPage() {
             Showing expenses for:{" "}
             <strong>
               {(() => {
-                const u = active.find((u) => u.id === unitFilter);
+                const u = active.find((x) => x.id === unitFilter);
                 return u
                   ? `${u.tower}-${u.code} ${u.name ?? ""}`
                   : unitFilter;
@@ -416,23 +434,24 @@ export default function ExpensesPage() {
                 <label>Amount (PHP)</label>
                 <input
                   type="number"
-                  value={form.amount}
+                  value={form.amount || ""}
                   onChange={(e) =>
                     setForm((f) => ({ ...f, amount: Number(e.target.value) }))
                   }
                   min={0}
                   step={0.01}
+                  placeholder="0"
                 />
               </div>
             </div>
             <div className="field-row">
               <div className="field">
-                <label>Description</label>
+                <label>Notes</label>
                 <input
                   type="text"
-                  value={form.description}
+                  value={form.notes}
                   onChange={(e) =>
-                    setForm((f) => ({ ...f, description: e.target.value }))
+                    setForm((f) => ({ ...f, notes: e.target.value }))
                   }
                   placeholder="What was this expense for?"
                 />
@@ -449,22 +468,9 @@ export default function ExpensesPage() {
                 />
               </div>
             </div>
-            <div className="field">
-              <label>Receipt Upload</label>
-              <input type="file" accept="image/*,.pdf" />
-              <p
-                style={{
-                  margin: "0.25rem 0 0",
-                  fontSize: "0.72rem",
-                  color: "var(--text-3)",
-                }}
-              >
-                Receipts will be stored in Supabase Storage once connected
-              </p>
-            </div>
             <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem" }}>
-              <button className="btn" onClick={saveExpense} type="button">
-                {editingId ? "Update Expense" : "Add Expense"}
+              <button className="btn" onClick={saveExpense} disabled={saving} type="button">
+                {saving ? "Saving..." : editingId ? "Update Expense" : "Add Expense"}
               </button>
               <button
                 className="btn-outline"
@@ -581,8 +587,8 @@ export default function ExpensesPage() {
         data={filtered}
         getRowKey={(e) => e.id}
         searchFields={[
-          (e) => e.description,
-          (e) => e.vendor,
+          (e) => e.notes || "",
+          (e) => e.vendor || "",
           (e) => e.category,
         ]}
         searchPlaceholder="Search expenses..."
@@ -607,18 +613,9 @@ export default function ExpensesPage() {
             >
               Edit
             </button>
-            {row.status === "pending" && (
-              <button
-                className="btn-xs"
-                onClick={() => approveExpense(row.id)}
-                type="button"
-              >
-                Approve
-              </button>
-            )}
             <button
               className="btn-xs btn-danger"
-              onClick={() => deleteExpense(row.id)}
+              onClick={() => handleDeleteExpense(row.id)}
               type="button"
             >
               Delete
@@ -628,8 +625,8 @@ export default function ExpensesPage() {
       />
 
       <p className="foot">
-        Expenses will persist once Supabase is connected. Receipt images are
-        stored in a private bucket with signed URLs.
+        Expenses are saved to the database automatically. Assign expenses to units
+        for accurate P&L reporting.
       </p>
     </>
   );

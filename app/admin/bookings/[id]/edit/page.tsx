@@ -18,15 +18,17 @@ const SOURCES = [
   { value: "agoda", label: "Agoda" },
   { value: "facebook", label: "Facebook" },
   { value: "manual", label: "Manual" },
+  { value: "block", label: "Blocked Dates" },
 ];
 
 const STATUSES = [
   { value: "pending_payment", label: "Pending Payment" },
   { value: "confirmed", label: "Confirmed" },
   { value: "checked_in", label: "Checked In" },
-  { value: "completed", label: "Completed" },
+  { value: "checked_out", label: "Checked Out" },
   { value: "cancelled", label: "Cancelled" },
   { value: "no_show", label: "No Show" },
+  { value: "blocked", label: "Blocked" },
 ];
 
 interface BookingData {
@@ -50,6 +52,7 @@ interface BookingData {
   discountAmount: number;
   parkingFee: number;
   parkingFeeType: "per_night" | "one_time";
+  parkingSlot: string | null;
 }
 
 export default function EditBookingPage() {
@@ -60,8 +63,10 @@ export default function EditBookingPage() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [unitId, setUnitId] = useState("");
 
   const [checkIn, setCheckIn] = useState("");
   const [checkOut, setCheckOut] = useState("");
@@ -79,6 +84,7 @@ export default function EditBookingPage() {
   const [discountAmount, setDiscountAmount] = useState(0);
   const [parkingFee, setParkingFee] = useState(0);
   const [parkingFeeType, setParkingFeeType] = useState<"per_night" | "one_time">("one_time");
+  const [parkingSlot, setParkingSlot] = useState("");
   const [proofUrl, setProofUrl] = useState<string | null>(null);
   const [proofLoading, setProofLoading] = useState(false);
 
@@ -86,6 +92,7 @@ export default function EditBookingPage() {
     fetch(`/api/bookings/${bookingId}`)
       .then((r) => r.json())
       .then((data: BookingData) => {
+        setUnitId(data.unitId);
         setCheckIn(data.checkIn);
         setCheckOut(data.checkOut);
         setGuests(data.guests);
@@ -102,6 +109,7 @@ export default function EditBookingPage() {
         setDiscountAmount(data.discountAmount || 0);
         setParkingFee(data.parkingFee || 0);
         setParkingFeeType(data.parkingFeeType || "one_time");
+        setParkingSlot(data.parkingSlot || "");
         setLoading(false);
         if (data.proofPath) {
           setProofLoading(true);
@@ -143,6 +151,7 @@ export default function EditBookingPage() {
           amountPaid,
           parkingFee,
           parkingFeeType,
+          parkingSlot,
         }),
       });
 
@@ -161,6 +170,32 @@ export default function EditBookingPage() {
     }
   }
 
+  async function handleDelete() {
+    const msg = source === "block"
+      ? "Unblock these dates? This will make them available for booking again."
+      : "Delete this booking? This action cannot be undone.";
+    if (!confirm(msg)) return;
+    setDeleting(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/bookings/${bookingId}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        setError(data.error || "Failed to delete");
+        return;
+      }
+      router.push("/admin/bookings");
+    } catch {
+      setError("Connection error");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  const isBlock = source === "block";
+  const unit = active.find((u) => u.id === unitId);
+  const unitLabel = unit ? `${unit.tower}-${unit.code}${unit.buildingId === "east" ? " E" : ""}` : unitId;
+
   if (loading) {
     return (
       <div className="page-head">
@@ -172,10 +207,27 @@ export default function EditBookingPage() {
   return (
     <>
       <div className="page-head">
-        <h1 className="today">Edit Booking</h1>
-        <Link href="/admin/bookings" className="btn btn-outline">
-          Back
-        </Link>
+        <div>
+          <h1 className="today">{isBlock ? "Edit Blocked Dates" : "Edit Booking"}</h1>
+          {unitId && (
+            <div style={{ fontSize: "0.8rem", color: "var(--text-3)", marginTop: "0.15rem" }}>
+              Unit: <strong>{unitLabel}</strong>
+            </div>
+          )}
+        </div>
+        <div style={{ display: "flex", gap: "0.5rem" }}>
+          <button
+            className="btn"
+            style={{ background: "var(--crit, #c0392b)", color: "#fff" }}
+            disabled={deleting}
+            onClick={handleDelete}
+          >
+            {deleting ? "Deleting..." : isBlock ? "Unblock Dates" : "Delete Booking"}
+          </button>
+          <Link href="/admin/bookings" className="btn btn-outline">
+            Back
+          </Link>
+        </div>
       </div>
 
       {success && (
@@ -281,6 +333,16 @@ export default function EditBookingPage() {
                 </select>
               </div>
             </div>
+            <div className="field">
+              <label htmlFor="parkingSlot">Parking Slot No.</label>
+              <input
+                type="text"
+                id="parkingSlot"
+                value={parkingSlot}
+                onChange={(e) => setParkingSlot(e.target.value)}
+                placeholder="e.g. B1-05, P2-12"
+              />
+            </div>
 
             {paymentType === "reservation" && grossAmount > 0 && amountPaid > 0 && amountPaid < grossAmount && (
               <div style={{ padding: "0.6rem 0.9rem", background: "color-mix(in srgb, var(--warn, #C89F45) 12%, transparent)", borderRadius: "6px", borderLeft: "3px solid var(--warn, #C89F45)", marginBottom: "0.75rem" }}>
@@ -307,66 +369,83 @@ export default function EditBookingPage() {
         </div>
 
         <div className="form-aside">
-          <div className="panel form-panel">
-            <h2>Guest Information</h2>
-            <div className="form-body">
-              <div className="field">
-                <label htmlFor="guestName">Primary guest name</label>
-                <input type="text" id="guestName" value={guestName} onChange={(e) => setGuestName(e.target.value)} />
-              </div>
-              <div className="field-row">
-                <div className="field">
-                  <label htmlFor="guestEmail">Email</label>
-                  <input type="email" id="guestEmail" value={guestEmail} onChange={(e) => setGuestEmail(e.target.value)} />
+          {isBlock ? (
+            <div className="panel form-panel">
+              <h2>Block Info</h2>
+              <div className="form-body">
+                <div style={{ padding: "0.75rem", background: "color-mix(in srgb, var(--ch-block) 12%, transparent)", borderRadius: "6px", borderLeft: "3px solid var(--ch-block)", marginBottom: "0.75rem" }}>
+                  <p style={{ margin: 0, fontSize: "0.82rem", color: "var(--text-2)" }}>
+                    These dates are <strong>blocked</strong> and unavailable for booking. Change the dates above or click <strong>Unblock Dates</strong> to make them available again.
+                  </p>
                 </div>
                 <div className="field">
-                  <label htmlFor="guestPhone">Phone</label>
-                  <input type="tel" id="guestPhone" value={guestPhone} onChange={(e) => setGuestPhone(e.target.value)} />
+                  <label htmlFor="notes">Reason / Notes</label>
+                  <textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} placeholder="e.g. Owner stay, maintenance, renovation..." />
                 </div>
-              </div>
-
-              <div className="field">
-                <label>Guest List (for endorsement)</label>
-                {guestList.map((g, i) => (
-                  <div key={i} style={{ display: "flex", gap: "0.5rem", marginBottom: "0.4rem", alignItems: "center" }}>
-                    <span style={{ fontSize: "0.75rem", color: "var(--text-3)", width: "1.2rem", textAlign: "right" }}>{i + 1}.</span>
-                    <input
-                      type="text"
-                      value={g}
-                      onChange={(e) => {
-                        const next = [...guestList];
-                        next[i] = e.target.value;
-                        setGuestList(next);
-                      }}
-                      placeholder={`Guest ${i + 1}`}
-                      style={{ flex: 1 }}
-                    />
-                    {guestList.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => setGuestList(guestList.filter((_, j) => j !== i))}
-                        style={{ background: "none", border: "none", color: "var(--text-3)", cursor: "pointer", fontSize: "1rem", padding: "0 0.25rem" }}
-                      >
-                        &times;
-                      </button>
-                    )}
-                  </div>
-                ))}
-                <button
-                  type="button"
-                  onClick={() => setGuestList([...guestList, ""])}
-                  style={{ background: "none", border: "1px dashed var(--line)", borderRadius: "6px", color: "var(--accent)", cursor: "pointer", fontSize: "0.8rem", padding: "0.35rem 0.75rem", marginTop: "0.25rem" }}
-                >
-                  + Add guest
-                </button>
-              </div>
-
-              <div className="field">
-                <label htmlFor="notes">Notes</label>
-                <textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} />
               </div>
             </div>
-          </div>
+          ) : (
+            <div className="panel form-panel">
+              <h2>Guest Information</h2>
+              <div className="form-body">
+                <div className="field">
+                  <label htmlFor="guestName">Primary guest name</label>
+                  <input type="text" id="guestName" value={guestName} onChange={(e) => setGuestName(e.target.value)} />
+                </div>
+                <div className="field-row">
+                  <div className="field">
+                    <label htmlFor="guestEmail">Email</label>
+                    <input type="email" id="guestEmail" value={guestEmail} onChange={(e) => setGuestEmail(e.target.value)} />
+                  </div>
+                  <div className="field">
+                    <label htmlFor="guestPhone">Phone</label>
+                    <input type="tel" id="guestPhone" value={guestPhone} onChange={(e) => setGuestPhone(e.target.value)} />
+                  </div>
+                </div>
+
+                <div className="field">
+                  <label>Guest List (for endorsement)</label>
+                  {guestList.map((g, i) => (
+                    <div key={i} style={{ display: "flex", gap: "0.5rem", marginBottom: "0.4rem", alignItems: "center" }}>
+                      <span style={{ fontSize: "0.75rem", color: "var(--text-3)", width: "1.2rem", textAlign: "right" }}>{i + 1}.</span>
+                      <input
+                        type="text"
+                        value={g}
+                        onChange={(e) => {
+                          const next = [...guestList];
+                          next[i] = e.target.value;
+                          setGuestList(next);
+                        }}
+                        placeholder={`Guest ${i + 1}`}
+                        style={{ flex: 1 }}
+                      />
+                      {guestList.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => setGuestList(guestList.filter((_, j) => j !== i))}
+                          style={{ background: "none", border: "none", color: "var(--text-3)", cursor: "pointer", fontSize: "1rem", padding: "0 0.25rem" }}
+                        >
+                          &times;
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setGuestList([...guestList, ""])}
+                    style={{ background: "none", border: "1px dashed var(--line)", borderRadius: "6px", color: "var(--accent)", cursor: "pointer", fontSize: "0.8rem", padding: "0.35rem 0.75rem", marginTop: "0.25rem" }}
+                  >
+                    + Add guest
+                  </button>
+                </div>
+
+                <div className="field">
+                  <label htmlFor="notes">Notes</label>
+                  <textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} />
+                </div>
+              </div>
+            </div>
+          )}
 
           {(proofUrl || proofLoading) && (
             <div className="panel form-panel" style={{ marginTop: "1rem" }}>
@@ -395,7 +474,7 @@ export default function EditBookingPage() {
           <button
             className="btn"
             style={{ width: "100%", marginTop: "1rem" }}
-            disabled={saving || !guestName.trim()}
+            disabled={saving || (!isBlock && !guestName.trim())}
             onClick={handleSave}
           >
             {saving ? "Saving..." : "Save Changes"}

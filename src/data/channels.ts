@@ -60,11 +60,18 @@ export async function saveUnitChannels(
 async function getUnitIdMap(): Promise<Map<string, string>> {
   if (!isSupabaseConfigured) return new Map();
   const sb = getSupabaseAdmin();
-  const { data } = await sb.from("units").select("id, slug");
+  const { data } = await sb
+    .from("units")
+    .select("id, tower, code, buildings!inner(name)")
+    .is("deleted_at", null);
   const map = new Map<string, string>();
   if (data) {
     for (const row of data) {
-      map.set(row.slug, row.id);
+      const bRaw = row.buildings as unknown as { name: string } | { name: string }[];
+      const bName = Array.isArray(bRaw) ? bRaw[0]!.name : bRaw.name;
+      const slug = bName.replace("Serin ", "").toLowerCase();
+      const appId = `${slug}-${row.tower}-${row.code}`;
+      map.set(appId, row.id);
     }
   }
   return map;
@@ -112,7 +119,7 @@ async function syncCalendar(
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15000);
-    const res = await fetch(cal.icalUrl, { signal: controller.signal });
+    const res = await fetch(cal.icalUrl.trim(), { signal: controller.signal });
     clearTimeout(timeout);
     if (!res.ok) {
       result.errors.push(`HTTP ${res.status} fetching calendar`);
@@ -147,14 +154,14 @@ async function syncCalendar(
 
   const source: BookingSource = detectSource(cal.icalUrl, "");
 
+  const today = new Date().toISOString().slice(0, 10);
+  const BLOCK_KEYWORDS = ["not available", "blocked", "closed"];
+
   for (const event of events) {
     if (!event.dtStart || !event.dtEnd) continue;
 
-    const today = new Date().toISOString().slice(0, 10);
-    if (event.dtEnd < today) {
-      result.skipped++;
-      continue;
-    }
+    const summaryLower = (event.summary || "").toLowerCase();
+    const isBlock = BLOCK_KEYWORDS.some((kw) => summaryLower.includes(kw));
 
     const externalId = `ical:${source}:${event.uid}`;
 
@@ -183,6 +190,36 @@ async function syncCalendar(
       result.skipped++;
       continue;
     }
+
+    if (isBlock) {
+      const { error: insertErr } = await sb.from("bookings").insert({
+        unit_id: unitUuid,
+        source: "block",
+        check_in: event.dtStart,
+        check_out: event.dtEnd,
+        guests_count: 1,
+        status: "blocked",
+        gross_amount: 0,
+        notes: `Blocked on ${cal.platform} (${event.summary || "Not available"})`,
+        external_id: externalId,
+        payment_type: "full",
+        amount_paid: 0,
+        guest_list: [],
+      });
+
+      if (insertErr) {
+        if (insertErr.message?.includes("bookings_no_overlap")) {
+          result.skipped++;
+        } else {
+          result.errors.push(`Insert block failed: ${insertErr.message}`);
+        }
+      } else {
+        result.imported++;
+      }
+      continue;
+    }
+
+    const isPast = event.dtEnd < today;
 
     const guestInfo = extractGuestInfo(event, cal.platform);
 
@@ -217,7 +254,7 @@ async function syncCalendar(
       check_in: event.dtStart,
       check_out: event.dtEnd,
       guests_count: guestInfo.guests || 2,
-      status: "confirmed",
+      status: isPast ? "checked_out" : "confirmed",
       gross_amount: guestInfo.payout || 0,
       notes: `Imported from ${cal.platform}. ${event.description || ""}`.trim(),
       external_id: externalId,

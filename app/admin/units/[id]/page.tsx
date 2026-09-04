@@ -268,7 +268,7 @@ export default function UnitEditPage() {
                 </p>
               </div>
               <div className="field">
-                <label>iCal Calendar URL</label>
+                <label>Import iCal URL</label>
                 <input
                   type="url"
                   value={icalUrl}
@@ -276,7 +276,32 @@ export default function UnitEditPage() {
                   placeholder="https://www.airbnb.com/calendar/ical/..."
                 />
                 <p style={{ margin: "0.25rem 0 0", fontSize: "0.72rem", color: "var(--text-3)" }}>
-                  Paste the iCal URL from Airbnb, Agoda, or other platforms to sync bookings
+                  Paste the iCal URL from Airbnb, Agoda, or other platforms to import their bookings
+                </p>
+              </div>
+              <div className="field">
+                <label>Export Calendar Link</label>
+                <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                  <input
+                    type="text"
+                    readOnly
+                    value={typeof window !== "undefined" ? `${window.location.origin}/api/ical/${unitId.replace(/[^a-z0-9]/g, "")}` : ""}
+                    style={{ flex: 1, fontSize: "0.8rem", color: "var(--text-2)", background: "var(--surface-2)" }}
+                    onFocus={(e) => e.target.select()}
+                  />
+                  <button
+                    type="button"
+                    className="btn-outline btn-sm"
+                    onClick={() => {
+                      const url = `${window.location.origin}/api/ical/${unitId.replace(/[^a-z0-9]/g, "")}`;
+                      navigator.clipboard.writeText(url);
+                    }}
+                  >
+                    Copy
+                  </button>
+                </div>
+                <p style={{ margin: "0.25rem 0 0", fontSize: "0.72rem", color: "var(--text-3)" }}>
+                  Paste this link into Airbnb / Booking.com / Agoda &ldquo;Import Calendar&rdquo; so they see your direct bookings
                 </p>
               </div>
             </div>
