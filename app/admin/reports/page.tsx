@@ -34,6 +34,8 @@ interface UnitPnl {
   utilitiesPct: number;
   utilitiesExpense: number;
   parkingRevenue: number;
+  perBookingExpenses: { label: string; amount: number }[];
+  perBookingExpenseTotal: number;
 }
 
 interface PnlData {
@@ -300,6 +302,75 @@ function FixedExpensesEditor({ unitId, items, numMonths, onSave, disabled }: {
   );
 }
 
+const PER_BOOKING_SUGGESTIONS = ["Laundry", "Supplies", "Amenities Kit", "Towels", "Linens", "Toiletries"];
+
+function PerBookingExpensesEditor({ unitId, items, bookingCount, onSave, disabled }: {
+  unitId: string;
+  items: { label: string; amount: number }[];
+  bookingCount: number;
+  onSave: (items: { label: string; amount: number }[]) => void;
+  disabled?: boolean;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [rows, setRows] = useState<{ label: string; amount: string }[]>([]);
+  const [saving, setSaving] = useState(false);
+
+  async function save() {
+    setSaving(true);
+    const cleaned = rows.filter((r) => r.label.trim() && Number(r.amount) > 0).map((r) => ({ label: r.label.trim(), amount: Number(r.amount) }));
+    onSave(cleaned);
+    setSaving(false);
+    setEditing(false);
+  }
+
+  if (!editing) {
+    return (
+      <div>
+        {items.length > 0 ? items.map((item, i) => (
+          <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: "0.75rem", marginBottom: "0.15rem" }}>
+            <span style={{ color: "var(--text-2)" }}>{item.label}/Booking: {fmt(item.amount)}</span>
+            <span style={{ fontFamily: "var(--mono)", color: "var(--crit, #c0392b)" }}>{bookingCount > 0 ? fmt(item.amount * bookingCount) : "—"}</span>
+          </div>
+        )) : null}
+        {!disabled && (
+          <button
+            onClick={() => {
+              setRows(items.length > 0 ? items.map((i) => ({ label: i.label, amount: String(i.amount) })) : [{ label: "", amount: "" }]);
+              setEditing(true);
+            }}
+            style={{ fontSize: "0.7rem", padding: "0.2rem 0.5rem", background: "none", border: "1px dashed var(--line)", borderRadius: 4, cursor: "pointer", color: "var(--accent)", marginTop: "0.3rem" }}
+          >
+            {items.length > 0 ? "Edit" : "+ Add per-booking expense"}
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ background: "var(--surface-2)", borderRadius: 6, padding: "0.6rem", marginTop: "0.25rem" }}>
+      {rows.map((row, i) => (
+        <div key={i} style={{ display: "flex", gap: "0.25rem", marginBottom: "0.25rem", alignItems: "center" }}>
+          <input type="text" value={row.label} onChange={(e) => { const next = [...rows]; next[i] = { ...next[i]!, label: e.target.value }; setRows(next); }}
+            placeholder="e.g. Laundry" list={`pb-${unitId}`}
+            style={{ flex: 1, fontSize: "0.75rem", padding: "0.15rem 0.3rem", border: "1px solid var(--line)", borderRadius: 3 }} />
+          <input type="number" value={row.amount} onChange={(e) => { const next = [...rows]; next[i] = { ...next[i]!, amount: e.target.value }; setRows(next); }}
+            placeholder="0" min={0} step={50}
+            style={{ width: "4.5rem", fontSize: "0.75rem", padding: "0.15rem 0.3rem", border: "1px solid var(--line)", borderRadius: 3, textAlign: "right" }} />
+          <button onClick={() => setRows(rows.filter((_, j) => j !== i))}
+            style={{ background: "none", border: "none", color: "var(--crit)", cursor: "pointer", fontSize: "0.9rem", padding: "0 0.15rem" }}>&times;</button>
+        </div>
+      ))}
+      <datalist id={`pb-${unitId}`}>{PER_BOOKING_SUGGESTIONS.map((item) => <option key={item} value={item} />)}</datalist>
+      <div style={{ display: "flex", gap: "0.3rem", marginTop: "0.3rem" }}>
+        <button onClick={() => setRows([...rows, { label: "", amount: "" }])} style={{ fontSize: "0.65rem", padding: "0.15rem 0.4rem", background: "none", border: "1px dashed var(--line)", borderRadius: 3, cursor: "pointer", color: "var(--accent)" }}>+ Row</button>
+        <button onClick={save} disabled={saving} style={{ fontSize: "0.65rem", padding: "0.15rem 0.5rem", background: "var(--accent)", color: "#fff", border: "none", borderRadius: 3, cursor: "pointer" }}>{saving ? "..." : "Save"}</button>
+        <button onClick={() => setEditing(false)} style={{ fontSize: "0.65rem", padding: "0.15rem 0.4rem", background: "none", border: "1px solid var(--line)", borderRadius: 3, cursor: "pointer", color: "var(--text-3)" }}>Cancel</button>
+      </div>
+    </div>
+  );
+}
+
 type SortCol = "code" | "bookings" | "nights" | "revenue" | "parking" | "expenses" | "profit" | "margin";
 
 export default function ReportsPage() {
@@ -408,6 +479,19 @@ export default function ReportsPage() {
       cleaningExpense: newCleaningExpense,
       totalPmIncome: u.pmFeeIncome,
       expenses: u.expenses - oldCleaningExpense + newCleaningExpense,
+    });
+  }
+
+  function handlePerBookingSave(unitId: string, items: { label: string; amount: number }[]) {
+    saveSetting(`per_booking_expenses:${unitId}`, items);
+    const u = data?.units.find((x) => x.unitId === unitId);
+    if (!u) return;
+    const oldTotal = u.perBookingExpenseTotal || 0;
+    const newTotal = items.reduce((s, e) => s + e.amount, 0) * u.bookingCount;
+    updateUnit(unitId, {
+      perBookingExpenses: items,
+      perBookingExpenseTotal: newTotal,
+      expenses: u.expenses - oldTotal + newTotal,
     });
   }
 
@@ -761,13 +845,20 @@ export default function ReportsPage() {
                                       {u.cleaningExpense > 0 ? fmt(u.cleaningExpense) : "—"}
                                     </span>
                                   </div>
+                                  <PerBookingExpensesEditor
+                                    unitId={u.unitId}
+                                    items={u.perBookingExpenses || []}
+                                    bookingCount={u.bookingCount}
+                                    onSave={(items) => handlePerBookingSave(u.unitId, items)}
+                                    disabled={!canEdit}
+                                  />
                                   {Object.entries(u.expensesByCategory).sort((a, b) => b[1] - a[1]).map(([cat, amt]) => (
                                     <div key={cat} style={{ display: "flex", justifyContent: "space-between", fontSize: "0.75rem", marginBottom: "0.15rem" }}>
                                       <span style={{ color: "var(--text-2)", textTransform: "capitalize" }}>{cat}</span>
                                       <span style={{ fontFamily: "var(--mono)", color: "var(--crit, #c0392b)" }}>{fmt(amt)}</span>
                                     </div>
                                   ))}
-                                  {Object.keys(u.expensesByCategory).length === 0 && u.cleaningExpense === 0 && <p style={{ fontSize: "0.75rem", color: "var(--text-3)", margin: 0 }}>No expenses recorded</p>}
+                                  {Object.keys(u.expensesByCategory).length === 0 && u.cleaningExpense === 0 && (u.perBookingExpenses || []).length === 0 && <p style={{ fontSize: "0.75rem", color: "var(--text-3)", margin: 0 }}>No expenses recorded</p>}
                                   <p style={{ margin: "0.5rem 0 0", fontSize: "0.72rem" }}>
                                     <Link href="/admin/expenses" style={{ color: "var(--accent)" }}>Add expenses</Link>
                                   </p>
