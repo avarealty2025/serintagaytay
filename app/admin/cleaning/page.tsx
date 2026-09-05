@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { UNITS } from "../../../src/data/units.ts";
+import { PermGuard } from "../_perm-guard.tsx";
 
 interface CleaningLog {
   id: string;
@@ -44,6 +45,7 @@ export default function CleaningPage() {
   }
 
   return (
+    <PermGuard perm="cleaning.view">
     <>
       <div className="page-head">
         <div>
@@ -146,5 +148,6 @@ export default function CleaningPage() {
         </div>
       )}
     </>
+    </PermGuard>
   );
 }

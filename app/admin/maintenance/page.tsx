@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { UNITS } from "../../../src/data/units.ts";
+import { PermGuard } from "../_perm-guard.tsx";
 
 interface UnitTaskCounts {
   pending: number;
@@ -26,6 +27,7 @@ export default function MaintenancePage() {
   const totalInProgress = Object.values(counts).reduce((s, c) => s + c.in_progress, 0);
 
   return (
+    <PermGuard perm="tasks.view">
     <>
       <div className="page-head">
         <div>
@@ -115,5 +117,6 @@ export default function MaintenancePage() {
         </div>
       )}
     </>
+    </PermGuard>
   );
 }

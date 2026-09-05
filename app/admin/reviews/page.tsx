@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { UNITS } from "../../../src/data/units.ts";
+import { PermGuard } from "../_perm-guard.tsx";
 
 interface Review {
   id: string;
@@ -171,6 +172,7 @@ export default function ReviewsPage() {
   };
 
   return (
+    <PermGuard perm="settings.view">
     <>
       <div className="page-head">
         <div>
@@ -401,5 +403,6 @@ export default function ReviewsPage() {
         )}
       </div>
     </>
+    </PermGuard>
   );
 }

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getGuests } from "../../../src/data/db.ts";
 import { formatPHP } from "../../../src/lib/pricing.ts";
+import { PermGuard } from "../_perm-guard.tsx";
 
 export const dynamic = "force-dynamic";
 
@@ -52,6 +53,7 @@ export default async function GuestsPage({
   const sortedTags = [...allTags].sort();
 
   return (
+    <PermGuard perm="guests.view">
     <>
       <div className="page-head">
         <h1 className="today">Guest CRM</h1>
@@ -194,5 +196,6 @@ export default async function GuestsPage({
         </div>
       </div>
     </>
+    </PermGuard>
   );
 }

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { UNITS } from "../../../src/data/units.ts";
 import { DEFAULT_SETTINGS, type SystemSettings } from "../../../src/lib/settings.ts";
+import { PermGuard } from "../_perm-guard.tsx";
 
 type Tab =
   | "business"
@@ -90,6 +91,7 @@ export default function SettingsPage() {
   }
 
   return (
+    <PermGuard perm="settings.view">
     <>
       <div className="page-head">
         <h1 className="today">Settings</h1>
@@ -864,5 +866,6 @@ export default function SettingsPage() {
         </div>
       </div>
     </>
+    </PermGuard>
   );
 }

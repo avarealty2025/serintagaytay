@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { UNITS } from "../../../src/data/units.ts";
+import { PermGuard } from "../_perm-guard.tsx";
 
 interface ChannelCalendar {
   platform: "airbnb" | "booking.com" | "agoda";
@@ -197,6 +198,7 @@ export default function ChannelsPage() {
   const selectedCount = previewEvents?.filter((e) => e.selected && e.status !== "exists").length ?? 0;
 
   return (
+    <PermGuard perm="settings.view">
     <>
       <div className="page-head">
         <div>
@@ -493,5 +495,6 @@ export default function ChannelsPage() {
         </div>
       </div>
     </>
+    </PermGuard>
   );
 }

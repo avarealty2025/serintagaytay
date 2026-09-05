@@ -9,6 +9,7 @@ import { StatusBtn } from "./_status-btn.tsx";
 import { ParkingSlot } from "./_parking-slot.tsx";
 import { InlineEdit, InlineSelect } from "./_inline-edit.tsx";
 import { BookingAmounts } from "./_booking-amounts.tsx";
+import { PermGuard } from "../_perm-guard.tsx";
 
 export const dynamic = "force-dynamic";
 
@@ -122,6 +123,7 @@ export default async function BookingsPage({
   const unitIds = [...new Set(bookings.map((b) => b.unitId))].sort();
 
   return (
+    <PermGuard perm="bookings.view">
     <>
       <div className="page-head">
         <div>
@@ -332,5 +334,6 @@ export default async function BookingsPage({
         </div>
       </div>
     </>
+    </PermGuard>
   );
 }

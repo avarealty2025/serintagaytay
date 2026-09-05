@@ -3,6 +3,7 @@ import { getBookings } from "../../../src/data/db.ts";
 import { toDateStr, addDays } from "../../../src/lib/dates.ts";
 import { TaskForm } from "./_task-form.tsx";
 import { CustomTasks } from "./_custom-tasks.tsx";
+import { PermGuard } from "../_perm-guard.tsx";
 
 export const dynamic = "force-dynamic";
 
@@ -96,6 +97,7 @@ export default async function TasksPage() {
   const upcomingTasks = tasks.filter((t) => t.dueDate > today);
 
   return (
+    <PermGuard perm="tasks.view">
     <>
       <div className="page-head">
         <h1 className="today">Tasks</h1>
@@ -187,5 +189,6 @@ export default async function TasksPage() {
         </div>
       )}
     </>
+    </PermGuard>
   );
 }

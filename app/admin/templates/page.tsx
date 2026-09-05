@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { UNITS } from "../../../src/data/units.ts";
+import { PermGuard } from "../_perm-guard.tsx";
 
 interface TemplatePhoto {
   url: string;
@@ -336,6 +337,7 @@ export default function TemplatesPage() {
   const ci = currentCheckin();
 
   return (
+    <PermGuard perm="settings.edit">
     <>
       <div className="page-head">
         <div>
@@ -735,6 +737,7 @@ export default function TemplatesPage() {
         </div>
       </div>
     </>
+    </PermGuard>
   );
 }
 

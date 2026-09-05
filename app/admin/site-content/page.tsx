@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import type { SiteContent } from "../../../src/data/site-content.ts";
+import { PermGuard } from "../_perm-guard.tsx";
 
 function updateAt<T>(arr: T[], idx: number, patch: Partial<T>): T[] {
   return arr.map((item, j) => (j === idx ? { ...item, ...patch } : item));
@@ -268,6 +269,7 @@ export default function SiteContentPage() {
   ];
 
   return (
+    <PermGuard perm="settings.edit">
     <>
       <div className="page-head">
         <div>
@@ -869,5 +871,6 @@ export default function SiteContentPage() {
         </div>
       )}
     </>
+    </PermGuard>
   );
 }

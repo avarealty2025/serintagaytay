@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { PermGuard } from "../_perm-guard.tsx";
 
 interface UnitPnl {
   unitId: string;
@@ -614,6 +615,7 @@ export default function ReportsPage() {
   );
 
   return (
+    <PermGuard perm="reports.view">
     <>
       <div className="page-head">
         <div>
@@ -1000,5 +1002,6 @@ export default function ReportsPage() {
         {" "}<Link href="/admin/expenses" style={{ color: "var(--accent)", fontSize: "0.8rem" }}>Manage Expenses</Link>
       </p>
     </>
+    </PermGuard>
   );
 }

@@ -9,6 +9,7 @@ import { StatusBtn } from "./bookings/_status-btn.tsx";
 import { CollectBtn } from "./bookings/_collect-btn.tsx";
 import { MyTasksPanel } from "./_my-tasks.tsx";
 import { LiveClock } from "./_live-clock.tsx";
+import { PermGuard } from "./_perm-guard.tsx";
 
 export const dynamic = "force-dynamic";
 
@@ -99,6 +100,7 @@ export default async function Dashboard() {
   );
 
   return (
+    <PermGuard perm="dashboard.view">
     <>
       <div className="page-head">
         <div>
@@ -416,5 +418,6 @@ export default async function Dashboard() {
         {" "}<Link href="/admin/bookings/history" style={{ color: "var(--accent)", fontSize: "0.8rem" }}>View History</Link>
       </p>
     </>
+    </PermGuard>
   );
 }

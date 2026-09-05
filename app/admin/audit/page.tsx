@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { DataTable, type Column } from "../../../src/components/data-table.tsx";
+import { PermGuard } from "../_perm-guard.tsx";
 
 interface AuditEntry {
   id: string;
@@ -145,6 +146,7 @@ export default function AuditPage() {
   ];
 
   return (
+    <PermGuard perm="audit.view">
     <>
       <div className="page-head">
         <h1 className="today">Audit Logs</h1>
@@ -189,5 +191,6 @@ export default function AuditPage() {
         timestamp, and IP address.
       </p>
     </>
+    </PermGuard>
   );
 }

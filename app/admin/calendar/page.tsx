@@ -3,6 +3,7 @@ import { getBookings } from "../../../src/data/db.ts";
 import { addDays, dayOfWeek, nightsBetween, toDateStr } from "../../../src/lib/dates.ts";
 import { AutoRefresh } from "../_auto-refresh.tsx";
 import { InteractiveCalendar } from "./_interactive-calendar.tsx";
+import { PermGuard } from "../_perm-guard.tsx";
 
 export const dynamic = "force-dynamic";
 
@@ -47,6 +48,7 @@ export default async function CalendarPage({
   }));
 
   return (
+    <PermGuard perm="calendar.view">
     <>
       <AutoRefresh interval={60} />
       <div className="cal-head">
@@ -73,5 +75,6 @@ export default async function CalendarPage({
         windowSize={WINDOW}
       />
     </>
+    </PermGuard>
   );
 }

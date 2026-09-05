@@ -8,6 +8,7 @@ import {
   type Role,
   type StaffMember,
 } from "../../../src/lib/permissions.ts";
+import { PermGuard } from "../_perm-guard.tsx";
 
 export default function StaffPage() {
   const [staff, setStaff] = useState<StaffMember[]>([]);
@@ -122,6 +123,7 @@ export default function StaffPage() {
   }
 
   return (
+    <PermGuard perm="staff.view">
     <>
       <div className="page-head">
         <h1 className="today">Staff</h1>
@@ -350,5 +352,6 @@ export default function StaffPage() {
         </div>
       )}
     </>
+    </PermGuard>
   );
 }

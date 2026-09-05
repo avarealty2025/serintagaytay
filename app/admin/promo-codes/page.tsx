@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { PermGuard } from "../_perm-guard.tsx";
 
 interface PromoCode {
   id: string;
@@ -133,6 +134,7 @@ export default function PromoCodesPage() {
   }
 
   return (
+    <PermGuard perm="settings.edit">
     <>
       <div className="page-head">
         <h1 className="today">Promo Codes</h1>
@@ -347,5 +349,6 @@ export default function PromoCodesPage() {
         )}
       </div>
     </>
+    </PermGuard>
   );
 }

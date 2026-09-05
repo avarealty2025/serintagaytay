@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { UNITS } from "../../../src/data/units.ts";
 import { formatPHP } from "../../../src/lib/pricing.ts";
 import { DataTable, type Column } from "../../../src/components/data-table.tsx";
+import { PermGuard } from "../_perm-guard.tsx";
 
 interface Expense {
   id: string;
@@ -253,6 +254,7 @@ export default function ExpensesPage() {
   }
 
   return (
+    <PermGuard perm="expenses.view">
     <>
       <div className="page-head">
         <h1 className="today">Expenses</h1>
@@ -629,5 +631,6 @@ export default function ExpensesPage() {
         for accurate P&L reporting.
       </p>
     </>
+    </PermGuard>
   );
 }

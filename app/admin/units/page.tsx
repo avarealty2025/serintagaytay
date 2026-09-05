@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { UNITS, TAAL_VIEW_CODES } from "../../../src/data/units.ts";
 import { formatPHP } from "../../../src/lib/pricing.ts";
+import { PermGuard } from "../_perm-guard.tsx";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +17,7 @@ export default function UnitsPage() {
   const inactive = UNITS.filter((u) => !u.active);
 
   return (
+    <PermGuard perm="units.view">
     <>
       <div className="page-head">
         <h1 className="today">Units</h1>
@@ -104,5 +106,6 @@ export default function UnitsPage() {
         </div>
       )}
     </>
+    </PermGuard>
   );
 }

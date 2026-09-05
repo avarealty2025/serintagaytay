@@ -1,6 +1,7 @@
 import { UNITS } from "../../../src/data/units.ts";
 import { getBookings } from "../../../src/data/db.ts";
 import { InvoiceActions } from "./_actions.tsx";
+import { PermGuard } from "../_perm-guard.tsx";
 
 export const dynamic = "force-dynamic";
 
@@ -39,6 +40,7 @@ export default async function InvoicesPage() {
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
   return (
+    <PermGuard perm="payments.view">
     <>
       <div className="page-head">
         <div>
@@ -115,5 +117,6 @@ export default async function InvoicesPage() {
         </div>
       </div>
     </>
+    </PermGuard>
   );
 }
