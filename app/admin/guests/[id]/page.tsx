@@ -5,6 +5,7 @@ import { UNITS } from "../../../../src/data/units.ts";
 import { formatPHP } from "../../../../src/lib/pricing.ts";
 import { nightsBetween } from "../../../../src/lib/dates.ts";
 import { NotesForm } from "./_notes-form.tsx";
+import { ProfileForm } from "./_profile-form.tsx";
 
 export const dynamic = "force-dynamic";
 
@@ -21,8 +22,11 @@ const SOURCE_LABEL: Record<string, string> = {
   direct: "Direct",
   airbnb: "Airbnb",
   agoda: "Agoda",
+  "booking.com": "Booking.com",
   facebook: "Facebook",
   manual: "Manual",
+  referral: "Referral",
+  "walk-in": "Walk-in",
 };
 
 export default async function GuestDetailPage({
@@ -46,6 +50,49 @@ export default async function GuestDetailPage({
       }
     }, 0);
 
+  const avgPerBooking =
+    guest.totalBookings > 0
+      ? Math.round(guest.totalRevenue / guest.totalBookings)
+      : 0;
+
+  const favUnit = (() => {
+    const counts = new Map<string, number>();
+    for (const b of guest.bookings) {
+      if (b.status !== "cancelled") {
+        counts.set(b.unitId, (counts.get(b.unitId) ?? 0) + 1);
+      }
+    }
+    let best = "";
+    let max = 0;
+    for (const [uid, c] of counts) {
+      if (c > max) {
+        best = uid;
+        max = c;
+      }
+    }
+    if (!best) return null;
+    const u = unitMap.get(best);
+    return u ? `${u.tower}-${u.code}` : best;
+  })();
+
+  const favSource = (() => {
+    const counts = new Map<string, number>();
+    for (const b of guest.bookings) {
+      if (b.source && b.status !== "cancelled") {
+        counts.set(b.source, (counts.get(b.source) ?? 0) + 1);
+      }
+    }
+    let best = "";
+    let max = 0;
+    for (const [s, c] of counts) {
+      if (c > max) {
+        best = s;
+        max = c;
+      }
+    }
+    return best ? (SOURCE_LABEL[best] ?? best) : null;
+  })();
+
   return (
     <>
       <div className="page-head">
@@ -56,7 +103,15 @@ export default async function GuestDetailPage({
           >
             Guest CRM
           </Link>
-          <h1 className="today">{guest.name}</h1>
+          <h1 className="today">
+            {guest.name}
+            {guest.tags.includes("VIP") && (
+              <span className="crm-tag vip" style={{ marginLeft: "0.75rem", verticalAlign: "middle" }}>VIP</span>
+            )}
+            {guest.totalBookings > 1 && !guest.tags.includes("Repeat") && (
+              <span className="crm-badge repeat" style={{ marginLeft: "0.5rem" }}>Repeat</span>
+            )}
+          </h1>
         </div>
       </div>
 
@@ -84,8 +139,23 @@ export default async function GuestDetailPage({
                 </span>
               )}
             </div>
+            {guest.tags.length > 0 && (
+              <div className="crm-tags-list" style={{ marginTop: "0.5rem" }}>
+                {guest.tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className={`crm-tag ${tag === "VIP" ? "vip" : tag === "Blacklisted" ? "blacklisted" : ""}`}
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
             <div style={{ fontSize: "0.78rem", color: "var(--text-3)", marginTop: "0.25rem" }}>
               Guest since {new Date(guest.createdAt).toLocaleDateString("en-PH", { year: "numeric", month: "long", day: "numeric" })}
+              {guest.source && (
+                <> &middot; via <strong>{SOURCE_LABEL[guest.source] ?? guest.source}</strong></>
+              )}
             </div>
           </div>
         </div>
@@ -103,7 +173,47 @@ export default async function GuestDetailPage({
             <span className="crm-stat-value">{formatPHP(guest.totalRevenue)}</span>
             <span className="crm-stat-label">Total Revenue</span>
           </div>
+          <div className="crm-stat-card">
+            <span className="crm-stat-value">{avgPerBooking > 0 ? formatPHP(avgPerBooking) : "—"}</span>
+            <span className="crm-stat-label">Avg / Booking</span>
+          </div>
+          {favUnit && (
+            <div className="crm-stat-card">
+              <span className="crm-stat-value">{favUnit}</span>
+              <span className="crm-stat-label">Favourite Unit</span>
+            </div>
+          )}
+          {favSource && (
+            <div className="crm-stat-card">
+              <span className="crm-stat-value">{favSource}</span>
+              <span className="crm-stat-label">Top Channel</span>
+            </div>
+          )}
         </div>
+      </div>
+
+      {guest.preferences && (
+        <div className="panel" style={{ marginBottom: "1.5rem" }}>
+          <h2>Preferences</h2>
+          <p style={{ whiteSpace: "pre-wrap", fontSize: "0.88rem", color: "var(--text-2)" }}>
+            {guest.preferences}
+          </p>
+        </div>
+      )}
+
+      <div className="panel">
+        <h2>Edit Profile</h2>
+        <ProfileForm
+          guestId={guest.id}
+          initial={{
+            name: guest.name,
+            email: guest.email,
+            phone: guest.phone,
+            tags: guest.tags,
+            preferences: guest.preferences,
+            source: guest.source,
+          }}
+        />
       </div>
 
       <div className="panel">
@@ -129,7 +239,6 @@ export default async function GuestDetailPage({
                   <th>Source</th>
                   <th className="tar">Amount</th>
                   <th>Status</th>
-                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -177,19 +286,6 @@ export default async function GuestDetailPage({
                         >
                           {STATUS_LABEL[b.status] ?? b.status}
                         </span>
-                      </td>
-                      <td>
-                        <Link
-                          href={`/admin/bookings/${b.id}/edit`}
-                          style={{
-                            fontSize: "0.72rem",
-                            color: "var(--accent)",
-                            fontWeight: 600,
-                            textDecoration: "none",
-                          }}
-                        >
-                          Edit
-                        </Link>
                       </td>
                     </tr>
                   );

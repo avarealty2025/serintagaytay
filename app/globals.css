@@ -3804,6 +3804,101 @@ a.btn {
   }
 }
 
+/* ── CRM Tags ── */
+.crm-tags-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.crm-tags-list.compact {
+  gap: 0.25rem;
+}
+.crm-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  white-space: nowrap;
+}
+.crm-tag.sm {
+  font-size: 0.65rem;
+  padding: 0.12rem 0.4rem;
+}
+.crm-tag.vip {
+  background: rgba(200, 159, 69, 0.15);
+  color: #a67c24;
+}
+.crm-tag.blacklisted {
+  background: rgba(164, 64, 44, 0.12);
+  color: var(--crit);
+}
+.crm-tag-remove {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: 0.85rem;
+  line-height: 1;
+  padding: 0;
+  opacity: 0.6;
+}
+.crm-tag-remove:hover {
+  opacity: 1;
+}
+.crm-tags-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.5rem;
+}
+.crm-tag-btn {
+  background: var(--surface-2);
+  border: 1px dashed var(--line);
+  border-radius: 999px;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.7rem;
+  color: var(--text-3);
+  cursor: pointer;
+  font-family: var(--sans);
+}
+.crm-tag-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.crm-tags-section {
+  margin-top: 1rem;
+}
+.crm-tags-section > label {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+  color: var(--text-2);
+}
+
+/* ── CRM Edit Form ── */
+.crm-edit-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+.btn-sm {
+  font-size: 0.78rem;
+  padding: 0.3rem 0.75rem;
+}
+
+@media (max-width: 600px) {
+  .crm-edit-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* ── My Booking (Guest Lookup) ── */
 .mb-form {
   background: var(--surface);

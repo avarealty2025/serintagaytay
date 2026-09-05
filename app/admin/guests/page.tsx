@@ -12,6 +12,7 @@ export default async function GuestsPage({
   const sp = await searchParams;
   const search = (sp.q || "").toLowerCase();
   const sort = sp.sort || "recent";
+  const tagFilter = sp.tag || "";
 
   let guests = await getGuests();
 
@@ -24,6 +25,10 @@ export default async function GuestsPage({
     );
   }
 
+  if (tagFilter) {
+    guests = guests.filter((g) => g.tags.includes(tagFilter));
+  }
+
   if (sort === "revenue") {
     guests.sort((a, b) => b.totalRevenue - a.totalRevenue);
   } else if (sort === "bookings") {
@@ -34,8 +39,17 @@ export default async function GuestsPage({
     guests.sort((a, b) => (b.lastCheckIn ?? "").localeCompare(a.lastCheckIn ?? ""));
   }
 
-  const totalGuests = guests.length;
-  const repeatGuests = guests.filter((g) => g.totalBookings > 1).length;
+  const allGuests = await getGuests();
+  const totalGuests = allGuests.length;
+  const repeatGuests = allGuests.filter((g) => g.totalBookings > 1).length;
+  const vipGuests = allGuests.filter((g) => g.tags.includes("VIP")).length;
+  const totalRevenue = allGuests.reduce((s, g) => s + g.totalRevenue, 0);
+
+  const allTags = new Set<string>();
+  for (const g of allGuests) {
+    for (const t of g.tags) allTags.add(t);
+  }
+  const sortedTags = [...allTags].sort();
 
   return (
     <>
@@ -52,6 +66,14 @@ export default async function GuestsPage({
           <span className="crm-stat-value">{repeatGuests}</span>
           <span className="crm-stat-label">Repeat Guests</span>
         </div>
+        <div className="crm-stat-card">
+          <span className="crm-stat-value">{vipGuests}</span>
+          <span className="crm-stat-label">VIP Guests</span>
+        </div>
+        <div className="crm-stat-card">
+          <span className="crm-stat-value">{formatPHP(totalRevenue)}</span>
+          <span className="crm-stat-label">Lifetime Revenue</span>
+        </div>
       </div>
 
       <div className="panel">
@@ -65,6 +87,15 @@ export default async function GuestsPage({
               placeholder="Name, email, or phone..."
               defaultValue={search}
             />
+          </div>
+          <div className="field">
+            <label htmlFor="tag">Tag</label>
+            <select id="tag" name="tag" defaultValue={tagFilter}>
+              <option value="">All tags</option>
+              {sortedTags.map((t) => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
           </div>
           <div className="field">
             <label htmlFor="sort">Sort by</label>
@@ -85,7 +116,7 @@ export default async function GuestsPage({
         <h2>
           {guests.length} guest{guests.length !== 1 ? "s" : ""}{" "}
           <span className="hint">
-            {search ? "matching your search" : "in your database"}
+            {search || tagFilter ? "matching your filters" : "in your database"}
           </span>
         </h2>
         <div className="tbl-scroll">
@@ -94,10 +125,10 @@ export default async function GuestsPage({
               <tr>
                 <th>Guest</th>
                 <th>Contact</th>
+                <th>Tags</th>
                 <th className="tar">Bookings</th>
                 <th className="tar">Revenue</th>
                 <th>Last Stay</th>
-                <th>First Stay</th>
                 <th></th>
               </tr>
             </thead>
@@ -122,8 +153,20 @@ export default async function GuestsPage({
                         <div style={{ color: "var(--text-3)" }}>{g.phone}</div>
                       )}
                       {!g.email && !g.phone && (
-                        <span style={{ color: "var(--text-3)" }}>No contact info</span>
+                        <span style={{ color: "var(--text-3)" }}>—</span>
                       )}
+                    </div>
+                  </td>
+                  <td>
+                    <div className="crm-tags-list compact">
+                      {g.tags.map((tag) => (
+                        <span
+                          key={tag}
+                          className={`crm-tag sm ${tag === "VIP" ? "vip" : tag === "Blacklisted" ? "blacklisted" : ""}`}
+                        >
+                          {tag}
+                        </span>
+                      ))}
                     </div>
                   </td>
                   <td className="tar mono">{g.totalBookings}</td>
@@ -131,7 +174,6 @@ export default async function GuestsPage({
                     {g.totalRevenue > 0 ? formatPHP(g.totalRevenue) : "—"}
                   </td>
                   <td className="mono">{g.lastCheckIn ?? "—"}</td>
-                  <td className="mono">{g.firstCheckIn ?? "—"}</td>
                   <td>
                     <Link
                       href={`/admin/guests/${g.id}`}

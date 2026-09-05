@@ -509,6 +509,9 @@ export interface DbGuest {
   email: string | null;
   phone: string | null;
   notes: string | null;
+  tags: string[];
+  preferences: string | null;
+  source: string | null;
   createdAt: string;
   totalBookings: number;
   totalRevenue: number;
@@ -545,6 +548,9 @@ export async function getGuests(): Promise<DbGuest[]> {
         email: g.email,
         phone: g.phone,
         notes: g.notes,
+        tags: g.tags ?? [],
+        preferences: g.preferences ?? null,
+        source: g.source ?? null,
         createdAt: g.created_at,
         totalBookings: s?.count ?? 0,
         totalRevenue: s?.revenue ?? 0,
@@ -606,6 +612,9 @@ export async function getGuest(id: string): Promise<DbGuestDetail | null> {
       email: guest.email,
       phone: guest.phone,
       notes: guest.notes,
+      tags: guest.tags ?? [],
+      preferences: guest.preferences ?? null,
+      source: guest.source ?? null,
       createdAt: guest.created_at,
       totalBookings: active.length,
       totalRevenue: active.reduce((sum, b) => sum + b.grossAmount, 0),
@@ -620,15 +629,18 @@ export async function getGuest(id: string): Promise<DbGuestDetail | null> {
 
 export async function updateGuest(
   id: string,
-  data: Partial<{ name: string; email: string; phone: string; notes: string }>,
+  data: Partial<{ name: string; email: string; phone: string; notes: string; tags: string[]; preferences: string; source: string }>,
 ): Promise<{ error: string | null }> {
   if (!isSupabaseConfigured) return { error: "Supabase not configured" };
   const sb = getSupabaseAdmin();
-  const update: Record<string, unknown> = {};
+  const update: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (data.name !== undefined) update.name = data.name;
   if (data.email !== undefined) update.email = data.email || null;
   if (data.phone !== undefined) update.phone = data.phone || null;
   if (data.notes !== undefined) update.notes = data.notes || null;
+  if (data.tags !== undefined) update.tags = data.tags;
+  if (data.preferences !== undefined) update.preferences = data.preferences || null;
+  if (data.source !== undefined) update.source = data.source || null;
   const { error } = await sb.from("guests").update(update).eq("id", id);
   if (error) return { error: error.message };
   return { error: null };
