@@ -1,4 +1,4 @@
-const CACHE_NAME = "serin-v1";
+const CACHE_NAME = "serin-v2";
 
 const PRECACHE_URLS = ["/", "/offline"];
 
