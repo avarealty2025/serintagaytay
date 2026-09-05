@@ -1,4 +1,4 @@
-const CACHE_NAME = "serin-v2";
+const CACHE_NAME = "serin-v3";
 
 const PRECACHE_URLS = ["/", "/offline"];
 
@@ -29,8 +29,8 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(request.url);
 
-  // Skip API routes and Supabase calls
-  if (url.pathname.startsWith("/api/") || url.hostname.includes("supabase")) {
+  // Skip API routes, Supabase calls, and manifest
+  if (url.pathname.startsWith("/api/") || url.hostname.includes("supabase") || url.pathname === "/manifest.json") {
     return;
   }
 
