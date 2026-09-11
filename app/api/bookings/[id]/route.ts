@@ -54,9 +54,21 @@ export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = req.cookies.get("serin_admin")?.value;
-  if (!session) {
+  const userId = req.cookies.get("serin_admin")?.value;
+  if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const isOwnerUser = userId === "1" || !isSupabaseConfigured;
+  if (!isOwnerUser) {
+    const sb = getSupabaseAdmin();
+    const { data: user } = await sb.from("users").select("role, permissions").eq("id", userId).single();
+    if (user && user.role !== "super_admin" && user.role !== "owner") {
+      const perms: string[] = user.permissions || [];
+      if (!perms.includes("bookings.edit")) {
+        return NextResponse.json({ error: "No permission to edit bookings" }, { status: 403 });
+      }
+    }
   }
 
   const { id } = await params;
@@ -84,7 +96,7 @@ export async function PUT(
     entityId: id,
     action: "update",
     after: body,
-    actor: "admin",
+    actor: userId,
   });
 
   return NextResponse.json({ ok: true });

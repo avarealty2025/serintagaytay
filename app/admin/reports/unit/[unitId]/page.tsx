@@ -205,7 +205,7 @@ function HorizBar({ label, value, max, color }: { label: string; value: number; 
 
 function InlineCell({ value, onSave, type = "text", options, align, mono, width }: {
   value: string | number;
-  onSave: (v: string | number) => void;
+  onSave: (v: string | number) => Promise<void> | void;
   type?: "text" | "number" | "date" | "select";
   options?: { value: string; label: string }[];
   align?: string;
@@ -214,10 +214,19 @@ function InlineCell({ value, onSave, type = "text", options, align, mono, width 
 }) {
   const [editing, setEditing] = useState(false);
   const [val, setVal] = useState(String(value ?? ""));
+  const [flash, setFlash] = useState<"ok" | "err" | null>(null);
 
-  function save() {
+  async function save() {
     const newVal = type === "number" ? (Number(val) || 0) : val;
-    if (newVal !== value) onSave(newVal);
+    if (String(newVal) !== String(value)) {
+      try {
+        await onSave(newVal);
+        setFlash("ok");
+      } catch {
+        setFlash("err");
+      }
+      setTimeout(() => setFlash(null), 1500);
+    }
     setEditing(false);
   }
 
@@ -228,10 +237,10 @@ function InlineCell({ value, onSave, type = "text", options, align, mono, width 
     return (
       <span
         onClick={(e) => { e.stopPropagation(); setVal(String(value ?? "")); setEditing(true); }}
-        style={{ cursor: "pointer", borderBottom: "1px dashed var(--text-3)", fontFamily: mono ? "var(--mono)" : "inherit", textAlign: align as never }}
+        style={{ cursor: "pointer", borderBottom: "1px dashed var(--text-3)", fontFamily: mono ? "var(--mono)" : "inherit", textAlign: align as never, transition: "color 0.3s", color: flash === "ok" ? "#16a34a" : flash === "err" ? "#dc2626" : "inherit" }}
         title="Click to edit"
       >
-        {display}
+        {flash === "ok" ? "✓ " : flash === "err" ? "✗ " : ""}{display}
       </span>
     );
   }
@@ -265,12 +274,22 @@ function InlineCell({ value, onSave, type = "text", options, align, mono, width 
   );
 }
 
-function InlineAmountEdit({ value, onSave }: { value: number; onSave: (v: number) => void }) {
+function InlineAmountEdit({ value, onSave }: { value: number; onSave: (v: number) => Promise<void> | void }) {
   const [editing, setEditing] = useState(false);
   const [val, setVal] = useState(String(value || ""));
+  const [flash, setFlash] = useState<"ok" | "err" | null>(null);
 
-  function save() {
-    onSave(Number(val) || 0);
+  async function save() {
+    const num = Number(val) || 0;
+    if (num !== value) {
+      try {
+        await onSave(num);
+        setFlash("ok");
+      } catch {
+        setFlash("err");
+      }
+      setTimeout(() => setFlash(null), 1500);
+    }
     setEditing(false);
   }
 
@@ -278,10 +297,10 @@ function InlineAmountEdit({ value, onSave }: { value: number; onSave: (v: number
     return (
       <span
         onClick={(e) => { e.stopPropagation(); setVal(String(value || "")); setEditing(true); }}
-        style={{ cursor: "pointer", borderBottom: "1px dashed var(--text-3)" }}
+        style={{ cursor: "pointer", borderBottom: "1px dashed var(--text-3)", transition: "color 0.3s", color: flash === "ok" ? "#16a34a" : flash === "err" ? "#dc2626" : "inherit" }}
         title="Click to edit"
       >
-        {fmt(value)}
+        {flash === "ok" ? "✓ " : flash === "err" ? "✗ " : ""}{fmt(value)}
       </span>
     );
   }
@@ -439,14 +458,16 @@ export default function UnitReportPage() {
   }
 
   async function updateBookingField(bookingId: string, field: string, value: string | number) {
-    try {
-      await fetch(`/api/bookings/${bookingId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ [field]: value }),
-      });
-      fetchData();
-    } catch { /* ignore */ }
+    const res = await fetch(`/api/bookings/${bookingId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ [field]: value }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || "Save failed");
+    }
+    fetchData();
   }
 
   async function saveFixedExpenses() {
