@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 
 interface MediaItem {
   type?: "photo" | "video" | "youtube";
@@ -17,6 +17,7 @@ interface Props {
 export function PhotoGallery({ photos, unitName }: Props) {
   const [active, setActive] = useState(0);
   const [lightbox, setLightbox] = useState(false);
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
 
   if (photos.length === 0) return null;
 
@@ -31,6 +32,22 @@ export function PhotoGallery({ photos, unitName }: Props) {
   function next() {
     setActive((i) => (i === photos.length - 1 ? 0 : i + 1));
   }
+
+  const onTouchStart = useCallback((e: React.TouchEvent) => {
+    const t = e.touches[0];
+    if (t) touchStart.current = { x: t.clientX, y: t.clientY };
+  }, []);
+
+  const onTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (!touchStart.current) return;
+    const t = e.changedTouches[0];
+    if (!t) return;
+    const dx = t.clientX - touchStart.current.x;
+    const dy = t.clientY - touchStart.current.y;
+    touchStart.current = null;
+    if (Math.abs(dx) < 40 || Math.abs(dy) > Math.abs(dx)) return;
+    if (dx < 0) next(); else prev();
+  }, [photos.length]);
 
   function renderMain(item: MediaItem, inLightbox = false) {
     if (item.type === "youtube" && item.youtubeId) {
@@ -73,6 +90,8 @@ export function PhotoGallery({ photos, unitName }: Props) {
           className="gallery-main"
           onClick={() => !isMedia && setLightbox(true)}
           style={isMedia ? { cursor: "default" } : undefined}
+          onTouchStart={onTouchStart}
+          onTouchEnd={onTouchEnd}
         >
           {renderMain(current)}
           <button className="gallery-arrow gallery-prev" onClick={(e) => { e.stopPropagation(); prev(); }} type="button" aria-label="Previous">&lsaquo;</button>
@@ -109,7 +128,7 @@ export function PhotoGallery({ photos, unitName }: Props) {
       </div>
 
       {lightbox && !isMedia && (
-        <div className="lightbox" onClick={() => setLightbox(false)}>
+        <div className="lightbox" onClick={() => setLightbox(false)} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
           <button className="lightbox-close" onClick={() => setLightbox(false)} type="button" aria-label="Close">&times;</button>
           <button className="lightbox-arrow lightbox-prev" onClick={(e) => { e.stopPropagation(); prev(); }} type="button" aria-label="Previous">&lsaquo;</button>
           {renderMain(current, true)}

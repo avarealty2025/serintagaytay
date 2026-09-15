@@ -29,6 +29,8 @@ export async function getUnitsFromDb(): Promise<Unit[]> {
       dbMap.set(appId, row);
     }
 
+    const hardcodedIds = new Set(UNITS.map((u) => u.id));
+
     const merged = UNITS.map((u) => {
       const row = dbMap.get(u.id);
       if (!row) return u;
@@ -51,6 +53,34 @@ export async function getUnitsFromDb(): Promise<Unit[]> {
         checkinInstructions: (row.checkin_instructions as string) || undefined,
       };
     });
+
+    for (const [appId, row] of dbMap) {
+      if (hardcodedIds.has(appId)) continue;
+      const bRaw = row.buildings as unknown as { name: string } | { name: string }[];
+      const bName = Array.isArray(bRaw) ? bRaw[0]!.name : bRaw.name;
+      const slug = bName.replace("Serin ", "").toLowerCase();
+      merged.push({
+        id: appId,
+        buildingId: slug,
+        tower: row.tower as number,
+        code: row.code as string,
+        name: (row.name as string) || undefined,
+        type: (row.type as Unit["type"]) || "studio",
+        description: (row.description as string) || undefined,
+        baseRate: Number(row.base_rate) || 0,
+        weekendRate: Number(row.weekend_rate) || 0,
+        monthlyRate: row.monthly_rate ? Number(row.monthly_rate) : undefined,
+        cleaningFee: Number(row.cleaning_fee ?? 0),
+        extraGuestFee: Number(row.extra_guest_fee ?? 0),
+        capacity: Number(row.capacity ?? 2),
+        maxGuests: Number(row.max_guests ?? 4),
+        minStay: Number(row.min_stay ?? 1),
+        amenities: (row.amenities as string[]) || undefined,
+        active: row.active as boolean,
+        view: (row.view as string) || undefined,
+        checkinInstructions: (row.checkin_instructions as string) || undefined,
+      });
+    }
 
     cachedUnits = merged;
     cacheTime = Date.now();

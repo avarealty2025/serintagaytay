@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { UNITS, TAAL_VIEW_CODES } from "../../../../src/data/units.ts";
 import { formatPHP } from "../../../../src/lib/pricing.ts";
 
 const TYPE_LABEL: Record<string, string> = {
@@ -36,23 +35,25 @@ const AMENITY_OPTIONS = [
 export default function UnitEditPage() {
   const params = useParams();
   const unitId = params.id as string;
-  const unit = UNITS.find((u) => u.id === unitId);
 
-  const [name, setName] = useState(unit?.name ?? "");
-  const [description, setDescription] = useState(unit?.description ?? "");
-  const [inclusions, setInclusions] = useState((unit?.inclusions ?? []).join("\n"));
-  const [weekdayRate, setWeekdayRate] = useState(unit?.baseRate ?? 0);
-  const [weekendRate, setWeekendRate] = useState(unit?.weekendRate ?? 0);
-  const [cleaningFee, setCleaningFee] = useState(unit?.cleaningFee ?? 0);
-  const [extraGuestFee, setExtraGuestFee] = useState(unit?.extraGuestFee ?? 0);
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
+  const [unitMeta, setUnitMeta] = useState<{ tower: number; code: string; buildingId: string } | null>(null);
+
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [weekdayRate, setWeekdayRate] = useState(0);
+  const [weekendRate, setWeekendRate] = useState(0);
+  const [cleaningFee, setCleaningFee] = useState(0);
+  const [extraGuestFee, setExtraGuestFee] = useState(0);
   const [parkingFee, setParkingFee] = useState(0);
   const [earlyCheckinFee, setEarlyCheckinFee] = useState(0);
   const [lateCheckoutFee, setLateCheckoutFee] = useState(0);
   const [weeklyDiscountPct, setWeeklyDiscountPct] = useState(0);
   const [monthlyDiscountPct, setMonthlyDiscountPct] = useState(0);
-  const [capacity, setCapacity] = useState(unit?.capacity ?? 2);
-  const [maxGuests, setMaxGuests] = useState(unit?.maxGuests ?? 4);
-  const [minStay, setMinStay] = useState(unit?.minStay ?? 1);
+  const [capacity, setCapacity] = useState(2);
+  const [maxGuests, setMaxGuests] = useState(4);
+  const [minStay, setMinStay] = useState(1);
   const [amenities, setAmenities] = useState<string[]>([
     "Wi-Fi",
     "Air Conditioning",
@@ -62,41 +63,48 @@ export default function UnitEditPage() {
     "Towels & Linens",
     "Swimming Pool Access",
   ]);
-  const [unitType, setUnitType] = useState<string>(unit?.type ?? "studio");
-  const [unitView, setUnitView] = useState(unit ? (TAAL_VIEW_CODES.has(unit.code) ? "Taal Caldera View" : "Ridge Side") : "");
+  const [unitType, setUnitType] = useState("studio");
+  const [unitView, setUnitView] = useState("");
   const [checkinInstructions, setCheckinInstructions] = useState("");
   const [icalUrl, setIcalUrl] = useState("");
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [dbLoaded, setDbLoaded] = useState(false);
 
   useEffect(() => {
     fetch(`/api/units/${unitId}`)
       .then((r) => r.json())
       .then((data) => {
-        if (!data.error) {
-          setName(data.name || "");
-          setDescription(data.description || "");
-          setWeekdayRate(data.baseRate ?? 0);
-          setWeekendRate(data.weekendRate ?? 0);
-          setCleaningFee(data.cleaningFee ?? 0);
-          setExtraGuestFee(data.extraGuestFee ?? 0);
-          setParkingFee(data.parkingFee ?? 0);
-          setEarlyCheckinFee(data.earlyCheckinFee ?? 0);
-          setLateCheckoutFee(data.lateCheckoutFee ?? 0);
-          setWeeklyDiscountPct(data.weeklyDiscountPct ?? 0);
-          setMonthlyDiscountPct(data.monthlyDiscountPct ?? 0);
-          setCapacity(data.capacity ?? 2);
-          setMaxGuests(data.maxGuests ?? 4);
-          setMinStay(data.minStay ?? 1);
-          if (data.amenities?.length) setAmenities(data.amenities);
-          if (data.type) setUnitType(data.type);
-          if (data.view) setUnitView(data.view);
-          if (data.checkinInstructions) setCheckinInstructions(data.checkinInstructions);
+        if (data.error) {
+          setNotFound(true);
+          return;
         }
-        setDbLoaded(true);
+        const parts = unitId.split("-");
+        const building = parts[0];
+        const tower = Number(parts[1]);
+        const code = parts.slice(2).join("-");
+        setUnitMeta({ tower, code, buildingId: building || "west" });
+
+        setName(data.name || "");
+        setDescription(data.description || "");
+        setWeekdayRate(data.baseRate ?? 0);
+        setWeekendRate(data.weekendRate ?? 0);
+        setCleaningFee(data.cleaningFee ?? 0);
+        setExtraGuestFee(data.extraGuestFee ?? 0);
+        setParkingFee(data.parkingFee ?? 0);
+        setEarlyCheckinFee(data.earlyCheckinFee ?? 0);
+        setLateCheckoutFee(data.lateCheckoutFee ?? 0);
+        setWeeklyDiscountPct(data.weeklyDiscountPct ?? 0);
+        setMonthlyDiscountPct(data.monthlyDiscountPct ?? 0);
+        setCapacity(data.capacity ?? 2);
+        setMaxGuests(data.maxGuests ?? 4);
+        setMinStay(data.minStay ?? 1);
+        if (data.amenities?.length) setAmenities(data.amenities);
+        if (data.type) setUnitType(data.type);
+        if (data.view) setUnitView(data.view);
+        if (data.checkinInstructions) setCheckinInstructions(data.checkinInstructions);
       })
-      .catch(() => setDbLoaded(true));
+      .catch(() => setNotFound(true))
+      .finally(() => setLoading(false));
 
     fetch("/api/units/ical-urls")
       .then((r) => r.json())
@@ -108,7 +116,11 @@ export default function UnitEditPage() {
       .catch(() => {});
   }, [unitId]);
 
-  if (!unit) {
+  if (loading) {
+    return <div className="page-head"><h1 className="today">Loading...</h1></div>;
+  }
+
+  if (notFound || !unitMeta) {
     return (
       <div className="panel">
         <div className="form-body">
@@ -124,7 +136,7 @@ export default function UnitEditPage() {
   async function handleSave() {
     setSaving(true);
     try {
-      const [unitRes, icalRes] = await Promise.all([
+      const [unitRes] = await Promise.all([
         fetch(`/api/units/${unitId}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -185,20 +197,20 @@ export default function UnitEditPage() {
             &larr; All Units
           </Link>
           <h1 className="today">
-            {unit.tower}-{unit.code}{" "}
-            {unit.buildingId === "west" ? "West" : "East"}
-            {unit.name ? ` — ${unit.name}` : ""}
+            {unitMeta.tower}-{unitMeta.code}{" "}
+            {unitMeta.buildingId === "west" ? "West" : "East"}
+            {name ? ` — ${name}` : ""}
           </h1>
         </div>
         <div style={{ display: "flex", gap: "0.5rem" }}>
           <Link
-            href={`/admin/units/${unit.id}/calendar`}
+            href={`/admin/units/${unitId}/calendar`}
             className="btn-outline btn-sm"
           >
             Calendar
           </Link>
           <Link
-            href={`/admin/units/${unit.id}/photos`}
+            href={`/admin/units/${unitId}/photos`}
             className="btn-outline btn-sm"
           >
             Photos
@@ -516,12 +528,12 @@ export default function UnitEditPage() {
               <div className="summary-row">
                 <span>Unit</span>
                 <span className="mono">
-                  {unit.tower}-{unit.code}
+                  {unitMeta.tower}-{unitMeta.code}
                 </span>
               </div>
               <div className="summary-row">
                 <span>Building</span>
-                <span>{unit.buildingId === "west" ? "Serin West" : "Serin East"}</span>
+                <span>{unitMeta.buildingId === "west" ? "Serin West" : "Serin East"}</span>
               </div>
               <div className="summary-row">
                 <span>Type</span>

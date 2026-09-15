@@ -3,8 +3,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { UNITS } from "../../../../../src/data/units.ts";
-
 interface Media {
   id: string;
   type: "photo" | "video" | "youtube";
@@ -28,8 +26,9 @@ function extractYouTubeId(url: string): string | null {
 export default function PhotoAlbumPage() {
   const params = useParams();
   const unitId = params.id as string;
-  const unit = UNITS.find((u) => u.id === unitId);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [unitInfo, setUnitInfo] = useState<{ tower: number; code: string; name?: string } | null>(null);
+  const [unitNotFound, setUnitNotFound] = useState(false);
   const [media, setMedia] = useState<Media[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -50,6 +49,23 @@ export default function PhotoAlbumPage() {
 
   useEffect(() => {
     if (!unitId) return;
+
+    fetch(`/api/units/${unitId}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.error) {
+          const parts = unitId.split("-");
+          setUnitInfo({ tower: Number(parts[1]), code: parts.slice(2).join("-"), name: undefined });
+        } else {
+          const parts = unitId.split("-");
+          setUnitInfo({ tower: Number(parts[1]), code: parts.slice(2).join("-"), name: data.name || undefined });
+        }
+      })
+      .catch(() => {
+        const parts = unitId.split("-");
+        setUnitInfo({ tower: Number(parts[1]), code: parts.slice(2).join("-"), name: undefined });
+      });
+
     fetch(`/api/units/${unitId}/photos`)
       .then((r) => r.json())
       .then((data: Media[]) => {
@@ -307,18 +323,9 @@ export default function PhotoAlbumPage() {
     persistMedia(arr);
   }
 
-  if (!unit) {
-    return (
-      <div className="panel">
-        <div className="form-body">
-          <p>Unit not found.</p>
-          <Link href="/admin/units" className="btn-outline">
-            Back to Units
-          </Link>
-        </div>
-      </div>
-    );
-  }
+  const displayTower = unitInfo?.tower ?? "";
+  const displayCode = unitInfo?.code ?? unitId;
+  const displayName = unitInfo?.name ?? "";
 
   const photoCount = media.filter((m) => m.type !== "youtube" && m.type !== "video").length;
   const videoCount = media.filter((m) => m.type === "video" || m.type === "youtube").length;
@@ -327,8 +334,8 @@ export default function PhotoAlbumPage() {
     <>
       <div className="page-head">
         <div>
-          <Link href={`/admin/units/${unit.id}`} className="back-link">
-            &larr; {unit.tower}-{unit.code} {unit.name ?? ""}
+          <Link href={`/admin/units/${unitId}`} className="back-link">
+            &larr; {displayTower}-{displayCode} {displayName}
           </Link>
           <h1 className="today">Photos & Videos</h1>
           <p style={{ margin: 0, fontSize: "0.8rem", color: "var(--text-3)" }}>

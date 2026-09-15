@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { UNITS, TAAL_VIEW_CODES } from "../../../src/data/units.ts";
+import { getUnitsFromDb } from "../../../src/data/units-server.ts";
 import { formatPHP } from "../../../src/lib/pricing.ts";
 import { PermGuard } from "../_perm-guard.tsx";
 
@@ -12,9 +12,10 @@ const TYPE_LABEL: Record<string, string> = {
   "2br": "2 Bedroom",
 };
 
-export default function UnitsPage() {
-  const active = UNITS.filter((u) => u.active);
-  const inactive = UNITS.filter((u) => !u.active);
+export default async function UnitsPage() {
+  const allUnits = await getUnitsFromDb();
+  const active = allUnits.filter((u) => u.active);
+  const inactive = allUnits.filter((u) => !u.active);
 
   return (
     <PermGuard perm="units.view">
@@ -36,8 +37,7 @@ export default function UnitsPage() {
 
       <div className="unit-grid">
         {active.map((u) => {
-          const taal = TAAL_VIEW_CODES.has(u.code);
-          const label = u.name ?? `${u.tower}-${u.code}`;
+          const taal = u.view ? u.view.toLowerCase().includes("taal") : false;
           return (
             <Link
               href={`/admin/units/${u.id}`}
@@ -54,7 +54,7 @@ export default function UnitsPage() {
               </div>
               {u.name && <p className="uc-name">{u.name}</p>}
               <div className="uc-facts">
-                <span>{TYPE_LABEL[u.type]}</span>
+                <span>{TYPE_LABEL[u.type] || u.type}</span>
                 <span>Sleeps {u.maxGuests}</span>
                 {taal && <span className="uc-view">Taal View</span>}
               </div>
@@ -99,7 +99,7 @@ export default function UnitsPage() {
                 <p className="who">
                   {u.tower}-{u.code} {u.buildingId === "west" ? "West" : "East"}
                 </p>
-                <p className="sub">{TYPE_LABEL[u.type]} {u.name ? `(${u.name})` : ""}</p>
+                <p className="sub">{TYPE_LABEL[u.type] || u.type} {u.name ? `(${u.name})` : ""}</p>
               </span>
             </div>
           ))}
