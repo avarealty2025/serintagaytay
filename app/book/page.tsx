@@ -4,14 +4,14 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Mark } from "../mark.tsx";
 import { Footer } from "../footer.tsx";
-import { UNITS, TAAL_VIEW_CODES } from "../../src/data/units.ts";
+import { TAAL_VIEW_CODES } from "../../src/data/units.ts";
 import {
   quote,
   formatPHP,
   PricingError,
 } from "../../src/lib/pricing.ts";
 import { nightsBetween, addDays, toDateStr, rangesOverlap } from "../../src/lib/dates.ts";
-import type { PriceBreakdown, BookingRange } from "../../src/lib/types.ts";
+import type { PriceBreakdown, BookingRange, Unit } from "../../src/lib/types.ts";
 import { blocksDates } from "../../src/lib/types.ts";
 import { getSettings, type PaymentAccount } from "../../src/lib/settings.ts";
 import { Suspense } from "react";
@@ -33,10 +33,17 @@ export default function BookPage() {
   );
 }
 
+interface UnitItem {
+  id: string; buildingId: string; tower: number; code: string; name?: string;
+  type: string; baseRate: number; weekendRate: number; cleaningFee: number;
+  extraGuestFee: number; capacity: number; maxGuests: number; active: boolean; view?: string;
+}
+
 function BookPageInner() {
   const sp = useSearchParams();
   const today = toDateStr(new Date());
-  const active = UNITS.filter((u) => u.active);
+  const [allUnits, setAllUnits] = useState<UnitItem[]>([]);
+  const active = allUnits.filter((u) => u.active);
   const settings = getSettings();
   const [paymentAccounts, setPaymentAccounts] = useState<PaymentAccount[]>(settings.payment.accounts ?? []);
   const [covers, setCovers] = useState<Record<string, string>>({});
@@ -45,6 +52,34 @@ function BookPageInner() {
   const [calendarUnit, setCalendarUnit] = useState<string | null>(null);
 
   useEffect(() => {
+    fetch("/api/units")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.units) {
+          setAllUnits(d.units);
+          const activeUnits = (d.units as UnitItem[]).filter((u) => u.active);
+          Promise.all(
+            activeUnits.map((u) =>
+              fetch(`/api/units/${u.id}/photos`)
+                .then((r) => r.json())
+                .then((photos: { url: string; thumb: string; isCover: boolean }[]) => {
+                  if (!photos || photos.length === 0) return null;
+                  const cover = photos.find((p) => p.isCover) ?? photos[0];
+                  return { id: u.id, thumb: cover!.thumb || cover!.url };
+                })
+                .catch(() => null),
+            ),
+          ).then((results) => {
+            const map: Record<string, string> = {};
+            for (const r of results) {
+              if (r) map[r.id] = r.thumb;
+            }
+            setCovers(map);
+          });
+        }
+      })
+      .catch(() => {});
+
     fetch("/api/settings")
       .then((r) => r.json())
       .then((db) => {
@@ -60,25 +95,6 @@ function BookPageInner() {
         if (data.bookings) setBookings(data.bookings);
       })
       .catch(() => {});
-
-    Promise.all(
-      active.map((u) =>
-        fetch(`/api/units/${u.id}/photos`)
-          .then((r) => r.json())
-          .then((photos: { url: string; thumb: string; isCover: boolean }[]) => {
-            if (!photos || photos.length === 0) return null;
-            const cover = photos.find((p) => p.isCover) ?? photos[0];
-            return { id: u.id, thumb: cover!.thumb || cover!.url };
-          })
-          .catch(() => null),
-      ),
-    ).then((results) => {
-      const map: Record<string, string> = {};
-      for (const r of results) {
-        if (r) map[r.id] = r.thumb;
-      }
-      setCovers(map);
-    });
 
     if (sp.get("checkIn") && sp.get("checkOut")) {
       setSearched(true);
@@ -126,7 +142,7 @@ function BookPageInner() {
   const results = active.map((unit) => {
     let price: PriceBreakdown | null = null;
     let error: string | null = null;
-    try { price = quote(unit, checkIn, checkOut, guests); } catch (e) {
+    try { price = quote(unit as Unit, checkIn, checkOut, guests); } catch (e) {
       error = e instanceof PricingError ? e.message : "Not available";
     }
     const available = isUnitAvailable(unit.id, checkIn, checkOut);
@@ -138,7 +154,7 @@ function BookPageInner() {
 
   let selectedPrice: PriceBreakdown | null = null;
   if (selectedUnit) {
-    try { selectedPrice = quote(selectedUnit, checkIn, checkOut, guests); } catch { /* skip */ }
+    try { selectedPrice = quote(selectedUnit as Unit, checkIn, checkOut, guests); } catch { /* skip */ }
   }
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {

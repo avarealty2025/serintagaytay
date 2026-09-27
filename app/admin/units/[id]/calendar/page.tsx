@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { UNITS } from "../../../../../src/data/units.ts";
+import { useUnits } from "../../../_units-context.tsx";
 import { formatPHP } from "../../../../../src/lib/pricing.ts";
 
 const DOW_HEADERS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -44,6 +44,7 @@ function toDateStr(d: Date) { return `${d.getUTCFullYear()}-${pad2(d.getUTCMonth
 function dateInRange(date: string, start: string, end: string) { return date >= start && date < end; }
 
 export default function UnitCalendarPage() {
+  const UNITS = useUnits();
   const params = useParams();
   const sp = useSearchParams();
   const unitId = params.id as string;

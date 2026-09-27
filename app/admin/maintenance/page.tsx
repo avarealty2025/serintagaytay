@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { UNITS } from "../../../src/data/units.ts";
+import { useUnits } from "../_units-context.tsx";
 import { PermGuard } from "../_perm-guard.tsx";
 
 interface UnitTaskCounts {
@@ -11,6 +11,7 @@ interface UnitTaskCounts {
 }
 
 export default function MaintenancePage() {
+  const UNITS = useUnits();
   const [counts, setCounts] = useState<Record<string, UnitTaskCounts>>({});
   const [loading, setLoading] = useState(true);
 

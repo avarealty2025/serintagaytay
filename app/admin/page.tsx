@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { UNITS } from "../../src/data/units.ts";
+import { getUnitsFromDb } from "../../src/data/units-server.ts";
 import { getBookings } from "../../src/data/db.ts";
 import { findAllOverlaps } from "../../src/lib/availability.ts";
 import { dayOfWeek, nightsBetween, toDateStr, addDays } from "../../src/lib/dates.ts";
@@ -36,6 +36,7 @@ function BalancePill({ gross, paid }: { gross: number; paid: number }) {
 export default async function Dashboard() {
   const today = toDateStr(new Date());
   const settings = getSettings();
+  const UNITS = await getUnitsFromDb();
   const { bookings, problems } = await getBookings();
   const overlaps = findAllOverlaps(bookings);
   const unitMap = new Map(UNITS.map((u) => [u.id, u]));

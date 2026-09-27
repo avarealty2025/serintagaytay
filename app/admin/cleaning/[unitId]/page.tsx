@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
-import { UNITS } from "../../../../src/data/units.ts";
+import { useUnits } from "../../_units-context.tsx";
 
 interface ChecklistCategory {
   category: string;
@@ -79,6 +79,7 @@ function swap<T>(arr: T[], i: number, j: number): T[] {
 export default function CleaningUnitPage() {
   const params = useParams();
   const searchParams = useSearchParams();
+  const UNITS = useUnits();
   const unitId = params.unitId as string;
   const unit = UNITS.find((u) => u.id === unitId);
   const initialTab = searchParams.get("tab") === "template" ? "template" : "clean";

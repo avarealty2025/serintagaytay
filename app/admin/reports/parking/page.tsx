@@ -1,6 +1,6 @@
 import { Fragment } from "react";
 import { getBookings } from "../../../../src/data/db.ts";
-import { UNITS } from "../../../../src/data/units.ts";
+import { getUnitsFromDb } from "../../../../src/data/units-server.ts";
 import { nightsBetween } from "../../../../src/lib/dates.ts";
 import { formatPHP } from "../../../../src/lib/pricing.ts";
 import Link from "next/link";
@@ -8,7 +8,7 @@ import Link from "next/link";
 export const dynamic = "force-dynamic";
 
 export default async function ParkingReportPage() {
-  const { bookings } = await getBookings();
+  const [{ bookings }, UNITS] = await Promise.all([getBookings(), getUnitsFromDb()]);
   const unitMap = new Map(UNITS.map((u) => [u.id, u]));
 
   const parkingBookings = bookings.filter(

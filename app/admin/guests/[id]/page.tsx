@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getGuest } from "../../../../src/data/db.ts";
-import { UNITS } from "../../../../src/data/units.ts";
+import { getUnitsFromDb } from "../../../../src/data/units-server.ts";
 import { formatPHP } from "../../../../src/lib/pricing.ts";
 import { nightsBetween } from "../../../../src/lib/dates.ts";
 import { NotesForm } from "./_notes-form.tsx";
@@ -38,6 +38,7 @@ export default async function GuestDetailPage({
   const guest = await getGuest(id);
   if (!guest) notFound();
 
+  const UNITS = await getUnitsFromDb();
   const unitMap = new Map(UNITS.map((u) => [u.id, u]));
 
   const totalNights = guest.bookings

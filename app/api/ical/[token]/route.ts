@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getBookings } from "../../../../src/data/db.ts";
-import { UNITS } from "../../../../src/data/units.ts";
+import { getBookings, getUnits } from "../../../../src/data/db.ts";
 import { generateICalFeed } from "../../../../src/lib/ical.ts";
 
 export async function GET(
@@ -8,6 +7,8 @@ export async function GET(
   { params }: { params: Promise<{ token: string }> },
 ) {
   const { token } = await params;
+
+  const [UNITS, { bookings }] = await Promise.all([getUnits(), getBookings()]);
 
   const unit = UNITS.find(
     (u) => u.id.replace(/[^a-z0-9]/g, "") === token.replace(/[^a-z0-9]/g, ""),
@@ -17,7 +18,6 @@ export async function GET(
   }
 
   const EXCLUDED = ["cancelled", "payment_rejected", "expired"];
-  const { bookings } = await getBookings();
   const unitBookings = bookings.filter(
     (b) => b.unitId === unit.id && !EXCLUDED.includes(b.status),
   );

@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { UNITS } from "../../../../../src/data/units.ts";
+import { useUnits } from "../../../_units-context.tsx";
 
 const TYPE_LABEL: Record<string, string> = {
   studio: "Studio",
@@ -56,6 +56,7 @@ interface BookingData {
 }
 
 export default function EditBookingPage() {
+  const UNITS = useUnits();
   const params = useParams();
   const router = useRouter();
   const bookingId = params.id as string;

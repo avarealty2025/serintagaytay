@@ -1,14 +1,9 @@
-import { UNITS } from "../../../src/data/units.ts";
 import { getBookings } from "../../../src/data/db.ts";
+import { getUnitsFromDb } from "../../../src/data/units-server.ts";
 import { InvoiceActions } from "./_actions.tsx";
 import { PermGuard } from "../_perm-guard.tsx";
 
 export const dynamic = "force-dynamic";
-
-function getUnitLabel(unitId: string): string {
-  const u = UNITS.find((u) => u.id === unitId);
-  return u ? (u.name || `${u.tower}-${u.code}`) : unitId;
-}
 
 function formatDate(d: string): string {
   return new Date(d + "T00:00:00").toLocaleDateString("en-PH", {
@@ -34,7 +29,13 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 export default async function InvoicesPage() {
-  const { bookings } = await getBookings();
+  const [{ bookings }, UNITS] = await Promise.all([getBookings(), getUnitsFromDb()]);
+
+  function getUnitLabel(unitId: string): string {
+    const u = UNITS.find((u) => u.id === unitId);
+    return u ? (u.name || `${u.tower}-${u.code}`) : unitId;
+  }
+
   const valid = bookings
     .filter((b) => b.status !== "blocked" && b.source !== "block")
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));

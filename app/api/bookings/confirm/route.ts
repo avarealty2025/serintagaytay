@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isSupabaseConfigured, getSupabaseAdmin } from "../../../../src/lib/supabase.ts";
 import { logAudit } from "../../../../src/data/db.ts";
-import { UNITS } from "../../../../src/data/units.ts";
 import { nightsBetween } from "../../../../src/lib/dates.ts";
 import { formatPHP } from "../../../../src/lib/pricing.ts";
 import { sendEmail, bookingConfirmationHtml } from "../../../../src/lib/email.ts";

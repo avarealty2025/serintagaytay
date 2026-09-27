@@ -1,4 +1,4 @@
-import { UNITS } from "../../../src/data/units.ts";
+import { getUnitsFromDb } from "../../../src/data/units-server.ts";
 import { getBookings } from "../../../src/data/db.ts";
 import { addDays, dayOfWeek, nightsBetween, toDateStr } from "../../../src/lib/dates.ts";
 import { AutoRefresh } from "../_auto-refresh.tsx";
@@ -18,6 +18,7 @@ export default async function CalendarPage({
   const today = toDateStr(new Date());
   const start = sp.from || today;
 
+  const UNITS = await getUnitsFromDb();
   const { bookings } = await getBookings();
   const active = UNITS.filter((u) => u.active);
   const days = Array.from({ length: WINDOW }, (_, i) => addDays(start, i));

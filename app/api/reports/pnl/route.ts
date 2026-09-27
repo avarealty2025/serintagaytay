@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getBookings, getExpenses, getDbSettings } from "../../../../src/data/db.ts";
-import { UNITS } from "../../../../src/data/units.ts";
+import { getBookings, getExpenses, getDbSettings, getUnits } from "../../../../src/data/db.ts";
 import { nightsBetween } from "../../../../src/lib/dates.ts";
 import { isSupabaseConfigured, getSupabaseAdmin } from "../../../../src/lib/supabase.ts";
 
@@ -62,10 +61,11 @@ export async function GET(req: NextRequest) {
   const period = url.searchParams.get("period") || "monthly";
   const dateParam = url.searchParams.get("date") || "";
 
-  const [{ bookings }, expenses, settings] = await Promise.all([
+  const [{ bookings }, expenses, settings, UNITS] = await Promise.all([
     getBookings(),
     getExpenses(),
     getDbSettings(),
+    getUnits(),
   ]);
 
   const active = UNITS.filter((u) => u.active);

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { UNITS } from "../../../src/data/units.ts";
+import { getUnitsFromDb } from "../../../src/data/units-server.ts";
 import { getBookings } from "../../../src/data/db.ts";
 import { nightsBetween, toDateStr } from "../../../src/lib/dates.ts";
 import { formatPHP, quote } from "../../../src/lib/pricing.ts";
@@ -51,6 +51,7 @@ export default async function BookingsPage({
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const sp = await searchParams;
+  const UNITS = await getUnitsFromDb();
   const { bookings } = await getBookings();
 
   const filterSource = sp.source || "";

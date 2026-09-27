@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { isSupabaseConfigured, getSupabaseAdmin } from "../../../../src/lib/supabase.ts";
-import { UNITS } from "../../../../src/data/units.ts";
 import { getSettings } from "../../../../src/lib/settings.ts";
 import { sendEmail } from "../../../../src/lib/email.ts";
-import { getDbSettings } from "../../../../src/data/db.ts";
+import { getDbSettings, getUnits } from "../../../../src/data/db.ts";
+
+let _unitsList: { id: string; name?: string; tower: number; code: string }[] = [];
 
 function getUnitLabel(unitId: string): string {
-  const u = UNITS.find((u) => u.id === unitId);
+  const u = _unitsList.find((u) => u.id === unitId);
   return u ? `${u.name || `${u.tower}-${u.code}`} (${u.tower}-${u.code})` : unitId;
 }
 
@@ -284,7 +285,8 @@ export async function GET(
   }
 
   const { id } = await params;
-  const [b, emailTpl] = await Promise.all([getBooking(id), getEmailTemplate()]);
+  const [b, emailTpl, units] = await Promise.all([getBooking(id), getEmailTemplate(), getUnits()]);
+  _unitsList = units;
   if (!b) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const settings = getSettings();
@@ -304,7 +306,8 @@ export async function POST(
   }
 
   const { id } = await params;
-  const [b, emailTpl] = await Promise.all([getBooking(id), getEmailTemplate()]);
+  const [b, emailTpl, units] = await Promise.all([getBooking(id), getEmailTemplate(), getUnits()]);
+  _unitsList = units;
   if (!b) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const { action } = await req.json();

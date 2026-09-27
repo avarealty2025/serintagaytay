@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { UNITS } from "../../../src/data/units.ts";
+import { useUnits } from "../_units-context.tsx";
 import { formatPHP } from "../../../src/lib/pricing.ts";
 import { DataTable, type Column } from "../../../src/components/data-table.tsx";
 import { PermGuard } from "../_perm-guard.tsx";
@@ -61,6 +61,7 @@ export default function ExpensesPage() {
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [catForm, setCatForm] = useState({ name: "", description: "" });
 
+  const UNITS = useUnits();
   const active = UNITS.filter((u) => u.active);
 
   useEffect(() => {

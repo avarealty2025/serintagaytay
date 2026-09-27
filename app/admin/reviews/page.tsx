@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { UNITS } from "../../../src/data/units.ts";
+import { useUnits } from "../_units-context.tsx";
 import { PermGuard } from "../_perm-guard.tsx";
 
 interface Review {
@@ -40,6 +40,7 @@ const SOURCE_OPTIONS = [
 const SOURCE_LABEL: Record<string, string> = Object.fromEntries(SOURCE_OPTIONS.map((o) => [o.value, o.label]));
 
 export default function ReviewsPage() {
+  const UNITS = useUnits();
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Review | null>(null);

@@ -3,6 +3,7 @@ import { SideNav } from "./_nav.tsx";
 import { NotificationBell } from "./_my-tasks.tsx";
 import { AiAssistant } from "./_ai-assistant.tsx";
 import { MeProvider } from "./_perm-guard.tsx";
+import { UnitsProvider } from "./_units-context.tsx";
 
 export default function AdminLayout({
   children,
@@ -11,6 +12,7 @@ export default function AdminLayout({
 }) {
   return (
     <MeProvider>
+    <UnitsProvider>
       <div className="shell">
         <aside className="side">
           <div className="lockup">
@@ -30,6 +32,7 @@ export default function AdminLayout({
         </main>
         <AiAssistant />
       </div>
+    </UnitsProvider>
     </MeProvider>
   );
 }

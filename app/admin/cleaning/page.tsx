@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { UNITS } from "../../../src/data/units.ts";
+import { useUnits } from "../_units-context.tsx";
 import { PermGuard } from "../_perm-guard.tsx";
 
 interface CleaningLog {
@@ -14,9 +14,9 @@ interface CleaningLog {
   signed_at: string;
 }
 
-const activeUnits = UNITS.filter((u) => u.active);
-
 export default function CleaningPage() {
+  const UNITS = useUnits();
+  const activeUnits = UNITS.filter((u) => u.active);
   const [logs, setLogs] = useState<Record<string, CleaningLog | null>>({});
   const [loading, setLoading] = useState(true);
 

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { UNITS } from "../../../src/data/units.ts";
+import { getUnits } from "../../../src/data/db.ts";
 import { getSettings } from "../../../src/lib/settings.ts";
 import { formatPHP } from "../../../src/lib/pricing.ts";
 
@@ -20,7 +20,7 @@ function buildEmailHtml(data: {
   guests: number;
   total: number;
   ref: string;
-}) {
+}, UNITS: { id: string; tower: number; code: string; buildingId: string; name?: string; type: string }[]) {
   const settings = getSettings();
   const unit = UNITS.find((u) => u.id === data.unitId);
   const unitLabel = unit
@@ -103,7 +103,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    const html = buildEmailHtml({ guestName, email, unitId, checkIn, checkOut, nights, guests, total, ref });
+    const UNITS = await getUnits();
+    const html = buildEmailHtml({ guestName, email, unitId, checkIn, checkOut, nights, guests, total, ref }, UNITS);
     const settings = getSettings();
 
     const resendKey = process.env.RESEND_API_KEY;

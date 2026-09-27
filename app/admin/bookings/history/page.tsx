@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { UNITS } from "../../../../src/data/units.ts";
+import { getUnitsFromDb } from "../../../../src/data/units-server.ts";
 import { getBookings } from "../../../../src/data/db.ts";
 import { nightsBetween } from "../../../../src/lib/dates.ts";
 import { formatPHP, quote } from "../../../../src/lib/pricing.ts";
@@ -15,6 +15,7 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 export default async function HistoryPage() {
+  const UNITS = await getUnitsFromDb();
   const { bookings } = await getBookings();
   const unitMap = new Map(UNITS.map((u) => [u.id, u]));
 

@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { UNITS } from "../../src/data/units.ts";
 
 interface BookingResult {
   id: string;
@@ -28,8 +27,11 @@ interface CheckinTemplate {
   photos: { url: string; caption: string }[];
 }
 
+interface UnitItem { id: string; tower: number; code: string; name?: string; }
+let _cachedUnits: UnitItem[] | null = null;
+
 function getUnitLabel(unitId: string): string {
-  const u = UNITS.find((u) => u.id === unitId);
+  const u = _cachedUnits?.find((u) => u.id === unitId);
   return u ? (u.name || `${u.tower}-${u.code}`) : unitId;
 }
 
@@ -81,6 +83,10 @@ export default function MyBookingPage() {
   const [error, setError] = useState("");
   const [selected, setSelected] = useState<BookingResult | null>(null);
   const [checkinTemplates, setCheckinTemplates] = useState<Record<string, CheckinTemplate>>({});
+
+  useEffect(() => {
+    fetch("/api/units").then((r) => r.json()).then((d) => { if (d.units) _cachedUnits = d.units; }).catch(() => {});
+  }, []);
 
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault();

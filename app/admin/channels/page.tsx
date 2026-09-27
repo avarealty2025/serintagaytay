@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { UNITS } from "../../../src/data/units.ts";
+import { useUnits } from "../_units-context.tsx";
 import { PermGuard } from "../_perm-guard.tsx";
 
 interface ChannelCalendar {
@@ -46,18 +46,18 @@ const PLATFORMS: { id: "airbnb" | "booking.com" | "agoda"; label: string; color:
   { id: "agoda", label: "Agoda", color: "#5542F6" },
 ];
 
-const activeUnits = UNITS.filter((u) => u.active);
-
 function emptyCalendars(): ChannelCalendar[] {
   return PLATFORMS.map((p) => ({ platform: p.id, icalUrl: "", enabled: false }));
 }
 
-function unitLabel(unitId: string): string {
-  const u = activeUnits.find((x) => x.id === unitId);
-  return u ? `${u.tower}-${u.code}${u.buildingId === "east" ? " E" : ""}` : unitId;
-}
-
 export default function ChannelsPage() {
+  const UNITS = useUnits();
+  const activeUnits = UNITS.filter((u) => u.active);
+
+  function unitLabel(unitId: string): string {
+    const u = activeUnits.find((x) => x.id === unitId);
+    return u ? `${u.tower}-${u.code}${u.buildingId === "east" ? " E" : ""}` : unitId;
+  }
   const [configs, setConfigs] = useState<UnitChannels[]>([]);
   const [syncLog, setSyncLog] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);

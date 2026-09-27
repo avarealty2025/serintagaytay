@@ -1,12 +1,19 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Mark } from "../mark.tsx";
 import { Footer } from "../footer.tsx";
-import { UNITS, TAAL_VIEW_CODES } from "../../src/data/units.ts";
+import { TAAL_VIEW_CODES } from "../../src/data/units.ts";
 import { formatPHP } from "../../src/lib/pricing.ts";
+
+interface UnitItem {
+  id: string; buildingId: string; tower: number; code: string; name?: string;
+  type: string; baseRate: number; weekendRate: number; cleaningFee: number;
+  extraGuestFee: number; capacity: number; maxGuests: number; active: boolean;
+  view?: string; sqm?: number; minStay: number; inclusions?: string[];
+}
 
 const TYPE_LABEL: Record<string, string> = {
   studio: "Studio",
@@ -25,7 +32,11 @@ export default function ComparePage() {
 
 function ComparePageInner() {
   const sp = useSearchParams();
-  const active = UNITS.filter((u) => u.active);
+  const [allUnits, setAllUnits] = useState<UnitItem[]>([]);
+  useEffect(() => {
+    fetch("/api/units").then((r) => r.json()).then((d) => { if (d.units) setAllUnits(d.units); }).catch(() => {});
+  }, []);
+  const active = allUnits.filter((u) => u.active);
   const [unitA, setUnitA] = useState(sp.get("a") || active[0]?.id || "");
   const [unitB, setUnitB] = useState(sp.get("b") || active[1]?.id || "");
 

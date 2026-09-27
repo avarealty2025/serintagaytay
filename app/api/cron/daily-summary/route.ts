@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getBookings } from "../../../../src/data/db.ts";
-import { UNITS } from "../../../../src/data/units.ts";
+import { getBookings, getUnits } from "../../../../src/data/db.ts";
 import { toDateStr, addDays } from "../../../../src/lib/dates.ts";
 import { formatPHP } from "../../../../src/lib/pricing.ts";
 import { sendEmail } from "../../../../src/lib/email.ts";
@@ -16,7 +15,7 @@ export async function GET(req: NextRequest) {
 
   const today = toDateStr(new Date());
   const tomorrow = addDays(today, 1);
-  const { bookings } = await getBookings();
+  const [{ bookings }, UNITS] = await Promise.all([getBookings(), getUnits()]);
   const unitMap = new Map(UNITS.map((u) => [u.id, u]));
 
   const live = bookings.filter((b) => !GONE.has(b.status));

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { UNITS } from "../../../src/data/units.ts";
+import { useUnits } from "../_units-context.tsx";
 import { DEFAULT_SETTINGS, type SystemSettings } from "../../../src/lib/settings.ts";
 import { PermGuard } from "../_perm-guard.tsx";
 
@@ -19,6 +19,7 @@ type Tab =
   | "system";
 
 export default function SettingsPage() {
+  const UNITS = useUnits();
   const [tab, setTab] = useState<Tab>("business");
   const [s, setS] = useState<SystemSettings>(DEFAULT_SETTINGS);
   const [saving, setSaving] = useState(false);

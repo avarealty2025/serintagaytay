@@ -1,10 +1,11 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { Suspense } from "react";
-import { UNITS } from "../../src/data/units.ts";
+import { Suspense, useState, useEffect } from "react";
 import { formatPHP } from "../../src/lib/pricing.ts";
 import { getSettings } from "../../src/lib/settings.ts";
+
+interface UnitItem { id: string; buildingId: string; tower: number; code: string; name?: string; type: string; }
 
 const TYPE_LABEL: Record<string, string> = {
   studio: "Studio",
@@ -16,6 +17,11 @@ const TYPE_LABEL: Record<string, string> = {
 function ReceiptContent() {
   const sp = useSearchParams();
   const settings = getSettings();
+  const [units, setUnits] = useState<UnitItem[]>([]);
+
+  useEffect(() => {
+    fetch("/api/units").then((r) => r.json()).then((d) => { if (d.units) setUnits(d.units); }).catch(() => {});
+  }, []);
 
   const unitId = sp.get("unit") ?? "";
   const name = sp.get("name") ?? "Guest";
@@ -28,7 +34,7 @@ function ReceiptContent() {
   const nights = Number(sp.get("nights")) || 0;
   const ref = sp.get("ref") ?? `SR-${Date.now().toString(36).toUpperCase()}`;
 
-  const unit = UNITS.find((u) => u.id === unitId);
+  const unit = units.find((u) => u.id === unitId);
 
   return (
     <div className="receipt-page">

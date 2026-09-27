@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { UNITS } from "../../../src/data/units.ts";
+import { useUnits } from "../_units-context.tsx";
 import { PermGuard } from "../_perm-guard.tsx";
 
 interface TemplatePhoto {
@@ -23,8 +23,6 @@ interface EmailTemplate {
   photos: TemplatePhoto[];
 }
 
-const ACTIVE_UNITS = UNITS.filter((u) => u.active);
-
 const DEFAULT_CHECKIN: CheckinTemplate = {
   instructions:
     "Check-in time is 2:00 PM. Check-out is at 12:00 PM (noon).\nProceed to the building lobby and present a valid government ID.\nYour unit key card will be provided at the front desk or via lockbox — details will be sent separately.\nWi-Fi password and unit access instructions will be provided upon check-in.",
@@ -42,7 +40,7 @@ const DEFAULT_EMAIL: EmailTemplate = {
   photos: [],
 };
 
-function getUnitLabel(u: (typeof UNITS)[0]): string {
+function getUnitLabel(u: { name?: string; tower: number; code: string }): string {
   return u.name || `${u.tower}-${u.code}`;
 }
 
@@ -196,6 +194,8 @@ function PhotoUploader({
 }
 
 export default function TemplatesPage() {
+  const UNITS = useUnits();
+  const ACTIVE_UNITS = UNITS.filter((u) => u.active);
   type Tab = "checkin" | "email";
   const [tab, setTab] = useState<Tab>("checkin");
   const [loaded, setLoaded] = useState(false);

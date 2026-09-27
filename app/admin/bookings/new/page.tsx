@@ -1,10 +1,10 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { UNITS } from "../../../../src/data/units.ts";
+import { useUnits } from "../../_units-context.tsx";
 import { quote, formatPHP, PricingError } from "../../../../src/lib/pricing.ts";
 import { nightsBetween, addDays, toDateStr } from "../../../../src/lib/dates.ts";
-import type { PriceBreakdown } from "../../../../src/lib/types.ts";
+import type { PriceBreakdown, Unit } from "../../../../src/lib/types.ts";
 
 const TYPE_LABEL: Record<string, string> = {
   studio: "Studio",
@@ -23,6 +23,7 @@ const SOURCES = [
 ];
 
 export default function NewBookingPage() {
+  const UNITS = useUnits();
   const today = toDateStr(new Date());
   const active = UNITS.filter((u) => u.active);
 
@@ -49,7 +50,7 @@ export default function NewBookingPage() {
 
   if (unit) {
     try {
-      pricing = quote(unit, checkIn, checkOut, guests);
+      pricing = quote(unit as Unit, checkIn, checkOut, guests);
     } catch (e) {
       pricingError = e instanceof PricingError ? e.message : "Invalid dates";
     }

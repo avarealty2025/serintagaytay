@@ -1,4 +1,4 @@
-import { UNITS } from "../../../src/data/units.ts";
+import { getUnitsFromDb } from "../../../src/data/units-server.ts";
 import { getBookings } from "../../../src/data/db.ts";
 import { toDateStr, addDays } from "../../../src/lib/dates.ts";
 import { TaskForm } from "./_task-form.tsx";
@@ -23,6 +23,7 @@ export default async function TasksPage() {
   const today = toDateStr(new Date());
   const tomorrow = addDays(today, 1);
   const { bookings } = await getBookings();
+  const UNITS = await getUnitsFromDb();
   const unitMap = new Map(UNITS.map((u) => [u.id, u]));
 
   const tasks: Task[] = [];

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { getBookings, getDbSettings } from "../../../../src/data/db.ts";
-import { UNITS } from "../../../../src/data/units.ts";
 import { getUnitsFromDb } from "../../../../src/data/units-server.ts";
 import { toDateStr } from "../../../../src/lib/dates.ts";
 
