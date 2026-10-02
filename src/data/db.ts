@@ -365,11 +365,30 @@ export async function updateBooking(
   if (data.guestName !== undefined || data.guestEmail !== undefined || data.guestPhone !== undefined) {
     const { data: booking } = await sb.from("bookings").select("guest_id").eq("id", id).single();
     if (booking?.guest_id) {
-      const guestUpdate: Record<string, unknown> = {};
-      if (data.guestName !== undefined) guestUpdate.name = data.guestName;
-      if (data.guestEmail !== undefined) guestUpdate.email = data.guestEmail || null;
-      if (data.guestPhone !== undefined) guestUpdate.phone = data.guestPhone || null;
-      await sb.from("guests").update(guestUpdate).eq("id", booking.guest_id);
+      const { count } = await sb
+        .from("bookings")
+        .select("id", { count: "exact", head: true })
+        .eq("guest_id", booking.guest_id)
+        .is("deleted_at", null);
+
+      if (count && count > 1) {
+        const { data: oldGuest } = await sb.from("guests").select("name, email, phone").eq("id", booking.guest_id).single();
+        const newGuestData = {
+          name: data.guestName ?? oldGuest?.name ?? "",
+          email: (data.guestEmail !== undefined ? data.guestEmail : oldGuest?.email) || null,
+          phone: (data.guestPhone !== undefined ? data.guestPhone : oldGuest?.phone) || null,
+        };
+        const { data: newGuest } = await sb.from("guests").insert(newGuestData).select("id").single();
+        if (newGuest) {
+          await sb.from("bookings").update({ guest_id: newGuest.id }).eq("id", id);
+        }
+      } else {
+        const guestUpdate: Record<string, unknown> = {};
+        if (data.guestName !== undefined) guestUpdate.name = data.guestName;
+        if (data.guestEmail !== undefined) guestUpdate.email = data.guestEmail || null;
+        if (data.guestPhone !== undefined) guestUpdate.phone = data.guestPhone || null;
+        await sb.from("guests").update(guestUpdate).eq("id", booking.guest_id);
+      }
     }
   }
 
