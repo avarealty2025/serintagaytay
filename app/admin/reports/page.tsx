@@ -543,6 +543,12 @@ export default function ReportsPage() {
     });
   }
 
+  function downloadUnit(unitId: string, e?: React.MouseEvent) {
+    if (e) e.stopPropagation();
+    const params = new URLSearchParams({ unit: unitId, period, date: periodDate });
+    window.open(`/api/reports/pnl/export?${params}`, "_blank");
+  }
+
   if (loading) return <div className="page-head"><h1 className="today">Loading Reports...</h1></div>;
   if (!data) return <div className="page-head"><h1 className="today">Reports</h1><p style={{ color: "var(--text-3)" }}>Failed to load data.</p></div>;
 
@@ -787,12 +793,19 @@ export default function ReportsPage() {
                             </span>
                           )}
                         </td>
-                        <td>
+                        <td style={{ whiteSpace: "nowrap" }}>
                           <button
                             onClick={(e) => { e.stopPropagation(); setExpandedUnit(expanded ? null : u.unitId); }}
                             style={{ fontSize: "0.7rem", padding: "0.15rem 0.4rem", background: "none", border: "1px solid var(--line)", borderRadius: 3, cursor: "pointer", color: "var(--accent)" }}
                           >
                             {expanded ? "Close" : "Details"}
+                          </button>
+                          <button
+                            onClick={(e) => downloadUnit(u.unitId, e)}
+                            title="Download Excel"
+                            style={{ fontSize: "0.7rem", padding: "0.15rem 0.4rem", background: "none", border: "1px solid var(--line)", borderRadius: 3, cursor: "pointer", color: "var(--accent)", marginLeft: "0.25rem" }}
+                          >
+                            ↓ Excel
                           </button>
                         </td>
                       </tr>
