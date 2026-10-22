@@ -558,6 +558,7 @@ export default function UnitReportPage() {
     byMonth.set(m, list);
   }
   const bookingMonths = [...byMonth.keys()].sort().reverse();
+  const mgmtPct = pnl?.mgmtFeePercent || 10;
 
   const tabStyle = (t: string) => ({
     padding: "0.5rem 1.25rem",
@@ -572,7 +573,7 @@ export default function UnitReportPage() {
 
   return (
     <>
-      <div className="page-head">
+      <div className="page-head" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         <div>
           <h1 className="today">
             <span style={{ fontFamily: "var(--mono)", marginRight: "0.5rem" }}>{unitCode}</span>
@@ -583,6 +584,16 @@ export default function UnitReportPage() {
             <Link href="/admin/reports" style={{ color: "var(--accent)" }}>Back to Reports</Link>
           </p>
         </div>
+        <button
+          onClick={() => {
+            const params = new URLSearchParams({ unit: unitId, period, date: pnlDateParam });
+            window.open(`/api/reports/pnl/export?${params}`, "_blank");
+          }}
+          className="btn btn-sm"
+          style={{ whiteSpace: "nowrap", flexShrink: 0 }}
+        >
+          Export Excel
+        </button>
       </div>
 
       {/* Period navigation */}
@@ -936,6 +947,7 @@ export default function UnitReportPage() {
               const pAmt = r.parkingFee > 0 ? (r.parkingFeeType === "per_night" ? r.parkingFee * nights : r.parkingFee) : 0;
               return s + Math.max(0, r.grossAmount - pAmt);
             }, 0);
+            const monthPmFee = Math.round(monthUnitAmt * (mgmtPct / 100));
             const monthCleaning = monthRows.reduce((s, r) => s + (r.cleaningFee || 0), 0);
             const monthParkingAmt = monthRows.reduce((s, r) => {
               const nights = Math.max(0, nightsBetween(r.checkIn, r.checkOut));
@@ -972,6 +984,7 @@ export default function UnitReportPage() {
                         <th>Source</th>
                         <th>Parking</th>
                         <th className="tar">Unit Amt</th>
+                        <th className="tar">PM Fee</th>
                         <th className="tar">Cleaning</th>
                         <th className="tar">Parking Amt</th>
                         <th className="tar">Total</th>
@@ -1016,6 +1029,7 @@ export default function UnitReportPage() {
                             <td className="tar mono">
                               <InlineCell value={unitAmt} type="number" onSave={(v) => updateBookingField(b.id, "grossAmount", Number(v) + pAmt)} mono align="right" width="5rem" />
                             </td>
+                            <td className="tar mono">{fmt(Math.round(unitAmt * (mgmtPct / 100)))}</td>
                             <td className="tar mono">{b.cleaningFee ? fmt(b.cleaningFee) : "0"}</td>
                             <td className="tar mono">
                               <InlineCell value={b.parkingFee || 0} type="number" onSave={(v) => updateBookingField(b.id, "parkingFee", v)} mono align="right" width="4rem" />
@@ -1052,6 +1066,7 @@ export default function UnitReportPage() {
                       <tr style={{ fontWeight: 700, borderTop: "2px solid var(--line)" }}>
                         <td colSpan={7}>Subtotal</td>
                         <td className="tar mono">{fmt(monthUnitAmt)}</td>
+                        <td className="tar mono">{fmt(monthPmFee)}</td>
                         <td className="tar mono">{fmt(monthCleaning)}</td>
                         <td className="tar mono">{fmt(monthParkingAmt)}</td>
                         <td className="tar mono">{fmt(monthTotal)}</td>
@@ -1059,7 +1074,7 @@ export default function UnitReportPage() {
                       </tr>
                       <tr style={{ borderTop: "1px solid var(--line)" }}>
                         <td colSpan={7} style={{ fontWeight: 700, paddingTop: "0.6rem", fontSize: "0.82rem", color: "var(--crit, #c0392b)" }}>Expenses</td>
-                        <td colSpan={4}></td>
+                        <td colSpan={5}></td>
                         <td colSpan={4}></td>
                       </tr>
                       {monthCleaning > 0 && (
@@ -1067,7 +1082,7 @@ export default function UnitReportPage() {
                           <td colSpan={7} style={{ paddingLeft: "1rem" }}>
                             Cleaning ({perBookingCount} &times; {fmt(pnl?.cleaningFeePerBooking || 0)})
                           </td>
-                          <td colSpan={3}></td>
+                          <td colSpan={4}></td>
                           <td className="tar mono">{fmt(monthCleaning)}</td>
                           <td colSpan={4}></td>
                         </tr>
@@ -1077,7 +1092,7 @@ export default function UnitReportPage() {
                           <td colSpan={7} style={{ paddingLeft: "1rem" }}>
                             {e.label} ({perBookingCount} &times; {fmt(e.amount)})
                           </td>
-                          <td colSpan={3}></td>
+                          <td colSpan={4}></td>
                           <td className="tar mono">{fmt(e.amount * perBookingCount)}</td>
                           <td colSpan={4}></td>
                         </tr>
@@ -1085,7 +1100,7 @@ export default function UnitReportPage() {
                       {(pnl?.fixedMonthly || []).map((f, i) => (
                         <tr key={`fixed-${i}`} style={{ color: "var(--text-2)", fontSize: "0.8rem" }}>
                           <td colSpan={7} style={{ paddingLeft: "1rem" }}>{f.label} <span style={{ color: "var(--text-3)" }}>(fixed/mo)</span></td>
-                          <td colSpan={3}></td>
+                          <td colSpan={4}></td>
                           <td className="tar mono">{fmt(f.amount)}</td>
                           <td colSpan={4}></td>
                         </tr>
@@ -1093,20 +1108,20 @@ export default function UnitReportPage() {
                       {monthExpenses > 0 && (
                         <tr style={{ color: "var(--text-2)", fontSize: "0.8rem" }}>
                           <td colSpan={7} style={{ paddingLeft: "1rem" }}>Other Recorded Expenses</td>
-                          <td colSpan={3}></td>
+                          <td colSpan={4}></td>
                           <td className="tar mono">{fmt(monthExpenses)}</td>
                           <td colSpan={4}></td>
                         </tr>
                       )}
                       <tr style={{ fontWeight: 700, color: "var(--crit, #c0392b)", borderTop: "1px solid var(--line)" }}>
                         <td colSpan={7}>Total Expenses</td>
-                        <td colSpan={3}></td>
+                        <td colSpan={4}></td>
                         <td className="tar mono">{fmt(totalMonthExpenses)}</td>
                         <td colSpan={4}></td>
                       </tr>
                       <tr style={{ fontWeight: 700, borderTop: "2px solid var(--line)", color: monthNet >= 0 ? "var(--good, #27ae60)" : "var(--crit, #c0392b)" }}>
                         <td colSpan={7}>Net</td>
-                        <td colSpan={3}></td>
+                        <td colSpan={4}></td>
                         <td className="tar mono">{monthNet >= 0 ? "+" : ""}{fmt(monthNet)}</td>
                         <td colSpan={4}></td>
                       </tr>
